@@ -1,0 +1,8 @@
+# build output
+bin/
+obj/
+dist/
+.vs/
+
+# third-party binaries copied from HDT (HearthMirror licence unverified, do not commit)
+src/lib/
