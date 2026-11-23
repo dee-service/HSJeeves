@@ -68,7 +68,10 @@ namespace HSJeeves
 			_update = info;
 			_updateItem.Visible = info != null;
 			if(info == null)
+			{
+				Log.Info("update check done: nothing newer than v" + current + " (or the site could not be read)");
 				return;
+			}
 			_updateItem.Text = "Update available: v" + info.Version + " - open download page";
 			Log.Info("update available: v" + info.Version + " (installed v" + current + ")");
 			if(_settings.UpdateNotified != info.Version.ToString())

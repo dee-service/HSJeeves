@@ -5,13 +5,16 @@
 #   .\installer\publish.ps1 -Dest dist\downloads -Notes "First release"            # local folder only
 #   .\installer\publish.ps1 -Dest dist\downloads -Remote user@host:/srv/hs-snake/downloads
 #
-# -Remote then copies the files with scp and removes pruned versions over ssh (needs OpenSSH, key login).
+# -Remote: one ssh call removes pruned versions and lists the server folder, one scp call uploads only files that are
+# missing there or differ in size, plus versions.json (needs OpenSSH; with key login there is no password prompt at all).
 # The folder is the single source of truth: versions.json is rebuilt from what is in it.
 param(
   [string]$Dest = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist\downloads'),
   [string]$Notes = '',
   [int]$Keep = 3,
-  [string]$Remote = ''
+  [string]$Remote = '',
+  # Private key file for ssh and scp. With it there is no password prompt (the key must be in authorized_keys on the server).
+  [string]$IdentityFile = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -66,16 +69,30 @@ Write-Host "Kept: $($entries.version -join ', ')   Removed: $(if ($removed) { $r
 if ($Remote) {
   if ($Remote -notmatch '^([^:]+):(.+)$') { throw '-Remote must look like user@host:/path' }
   $hostPart = $Matches[1]; $path = $Matches[2]
-  # One scp call = one password prompt. scp copies in argument order: installers first, manifest last,
-  # so the page never lists a file that is not there yet.
+
+  # Call 1 (ssh, one password prompt): delete pruned versions, then list what is already there with sizes.
+  # Pruned files go first so the folder never holds more than -Keep versions; the manifest follows within seconds.
+  $rm = if ($removed) { 'rm -f ' + (($removed | ForEach-Object { "'$path/$_'" }) -join ' ') + '; ' } else { '' }
+  # -n: stdin from NUL. Windows OpenSSH can otherwise keep waiting on the console stdin after the remote command ended.
+  $opt = @(); if ($IdentityFile) { $opt = @("-i", $IdentityFile, "-o", "IdentitiesOnly=yes") }
+  $listing = ssh -n -T @opt -o ConnectTimeout=15 $hostPart "${rm}find '$path' -maxdepth 1 -type f -printf '%f %s\n'"
+  if ($LASTEXITCODE) { throw "ssh failed (does $path exist on the server?)" }
+  $remoteSize = @{}
+  foreach ($line in $listing) { if ($line -match '^(.+) (\d+)$') { $remoteSize[$Matches[1]] = [int64]$Matches[2] } }
+
+  # Upload only what is missing or has a different size. versions.json is tiny and always sent, last.
   $send = @()
-  foreach ($e in $entries) { $send += (Join-Path $Dest $e.file); $send += (Join-Path $Dest ($e.file + '.sha256')) }
-  $send += (Join-Path $Dest 'versions.json')
-  scp @send "${Remote}/"; if ($LASTEXITCODE) { throw 'scp failed' }
-  # Pruned versions are deleted in one ssh call (a second prompt, only when something was pruned).
-  if ($removed) {
-    $rm = ($removed | ForEach-Object { "'$path/$_'" }) -join ' '
-    ssh $hostPart "rm -f $rm"; if ($LASTEXITCODE) { throw 'ssh rm failed' }
+  foreach ($e in $entries) {
+    foreach ($suffix in '', '.sha256') {
+      $name = $e.file + $suffix
+      $local = Get-Item (Join-Path $Dest $name)
+      if (-not $remoteSize.ContainsKey($name) -or $remoteSize[$name] -ne $local.Length) { $send += $local.FullName } else { Write-Host "Already on server: $name" }
+    }
   }
-  Write-Host "Published to $Remote"
+  $send += (Join-Path $Dest 'versions.json')
+
+  # Call 2 (scp, second prompt). scp copies in argument order: installers first, manifest last,
+  # so the page never lists a file that is not there yet.
+  scp @opt @send "${Remote}/"; if ($LASTEXITCODE) { throw 'scp failed' }
+  Write-Host "Published to $Remote ($($send.Count - 1) file(s) uploaded + versions.json)"
 }

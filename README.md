@@ -6,7 +6,8 @@ game with HearthMirror and `Power.log`, so it does not need Hearthstone Deck
 Tracker.
 
 - Design: [design/hsjeeves-app.md](design/hsjeeves-app.md)
-- Player install guide (draft): [docs/how-to.md](docs/how-to.md)
+- Player install guide: [docs/how-to.md](docs/how-to.md)
+- Releasing a new version (maintainer): [docs/release.md](docs/release.md)
 
 ## Status
 
