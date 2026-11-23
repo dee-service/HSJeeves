@@ -26,21 +26,24 @@ depend on it.
 ## Architecture
 
 One process, a tray app with no main window, made of five components.
+Game start, end, result and rank come from HearthMirror (process memory), as
+proven by the spike (see [docs/open-questions.md](../docs/open-questions.md),
+items A1, A8, B9, B10). **`Power.log` is used for one thing only: the
+`wasConceded` flag**, which memory cannot provide.
 
 ```text
- Hearthstone.exe ── Power.log ──► LogWatcher ──► GameTracker ──► Uploader ──► backend
-        │                                            ▲   │
-        └──── process memory ──► RankReader (HearthMirror)  └──► PendingQueue (jsonl)
-                                                     ▲
- ProcessMonitor ─────────────────────────────────────┘ (start/stop reading when game runs)
+ Hearthstone.exe ── process memory ──► RankReader (HearthMirror) ──► GameTracker ──► Uploader ──► backend
+        │                                                              ▲   │
+        └── Power.log ──► ConcedeWatcher (concede events only) ────────┘   └──► PendingQueue (jsonl)
+ ProcessMonitor ─ (start/stop reading when Hearthstone runs)
 ```
 
 | Component | Responsibility |
 |---|---|
-| **ProcessMonitor** | Polls (~2 s) for `Hearthstone.exe`. Starts the log watcher and rank reader when it appears, stops them when it exits. Also resets cached region. |
-| **LogWatcher** | Tails `Power.log` of the *current* Hearthstone session. Emits `GameStarted`, `GameEnded(result, conceded)`. Reopens on truncation/rotation. |
-| **RankReader** | Thin wrapper over HearthMirror: `GetMedalInfo()`, `GetAccountId()`, match info (game type, format, names). Owns the retry loop (HDT's was 5 × 150 ms; we use our own, see below). |
-| **GameTracker** | State machine that combines the above into one `MatchRecord` per game. |
+| **ProcessMonitor** | Polls (~2 s) for `Hearthstone.exe`. Starts the rank reader when it appears, stops it when it exits. Also resets cached region. |
+| **RankReader** | Thin wrapper over HearthMirror, sampled about once per second while Hearthstone runs: scene state, game type, format, match info (names, BattleTags), `GetAccountId()`, `GetMedalInfo()`. Retries `MatchInfo` until non-null after a game starts. |
+| **ConcedeWatcher** | Tails the current session's `Power.log` and reports only `TAG_CHANGE Entity=<name> tag=PLAYSTATE value=CONCEDED` events (same signal as HDT's `TagChangeActions.PlaystateChange`). Opens the file with `FileShare.ReadWrite \| FileShare.Delete`, handles truncation on game launch. Optional: if the log is missing, the game is still tracked and `wasConceded` is sent as `false` (the backend requires a boolean). |
+| **GameTracker** | State machine that combines the samples into one `MatchRecord` per game. Detects start (scene `GAMEPLAY`) and end (`SeasonGames` of the played format increased). |
 | **Uploader** | Builds the JSON payload, POSTs it with the Bearer key, and falls back to the retry queue on failure. Ported nearly unchanged from `RankTrackerPlugin.SendToServer`. |
 
 Plus: **TrayUi** (status icon, menu, settings window), **Settings**, **Logging**.
@@ -49,36 +52,62 @@ Plus: **TrayUi** (status icon, menu, settings window), **Settings**, **Logging**
 
 | Plugin used (from HDT) | HSJeeves source |
 |---|---|
-| `GameEvents.OnGameEnd` | `LogWatcher` sees `GameEntity` tag `STATE = COMPLETE` |
-| `Turns`, `Result`, `WasConceded` | Log: `TURN` tag, `PLAYSTATE` of the local player (`WON`/`LOST`/`CONCEDED`/`TIED`) |
-| `GameMode`, `Format` | HearthMirror match info (game type + format type); mapped to the same strings the backend already receives (`Ranked`, `Standard`, …) |
-| Pre-match rank | `GetMedalInfo()` snapshot at `GameStarted` |
-| Post-match rank (`...After`) | `GetMedalInfo()` polling after `STATE COMPLETE` |
-| `Region` | `GetAccountId()` → `(accountHi >> 32) & 0xFF` → `US`/`EU`/`AP` (same `RegionLabel` remap) |
-| `GameId` | `Guid.NewGuid()` created at `GameStarted` (idempotency key) |
-| Player/opponent BattleTag | HearthMirror match info; log player lines as fallback |
+| `GameEvents.OnGameEnd` | `SeasonGames` of the played format's `MedalInfo` entry increases while (or shortly after) the scene is `GAMEPLAY` |
+| `Result` | `SeasonWins` also increased → `Win`, otherwise `Loss`. A draw cannot be told apart from a loss in v1. |
+| `WasConceded` | `ConcedeWatcher` saw `PLAYSTATE value=CONCEDED` during this game. Same meaning as the plugin: HDT also flags it when the *opponent* concedes. The backend requires a real boolean (not null), so `false` is sent when the log is unavailable, and a warning is logged. |
+| `Turns` | Not needed. The 0-turn guard is replaced by "no `SeasonGames` increase → no upload". |
+| `GameMode`, `Format` | `GetGameType()` (7 = `GT_RANKED`) and `GetFormat()` (2 = `FT_STANDARD`), cached while in the game because they reset when the player leaves. Mapped like HDT's `HearthDbConverter` to `Ranked`, `Standard`, … |
+| Pre-match rank | `MedalInfo` entry **of the played format**, snapshotted when `GAMEPLAY` starts |
+| Post-match rank (`...After`) | The same entry once `SeasonGames` increased (readable before the player leaves the game screen) |
+| `Region` | `GetAccountId()` → `(accountHi >> 32) & 0xFF` → `US`/`EU`/`AP` (same `RegionLabel` remap); available before any game |
+| `GameId` | `Guid.NewGuid()` created at game start (idempotency key) |
+| `StartTime` / `EndTime` | Scene entering `GAMEPLAY` / moment the `SeasonGames` increase is seen |
+| Player/opponent BattleTag | `MatchInfo.LocalPlayer.BattleTag` / `OpposingPlayer.BattleTag` (filled about 4 s after game start) |
 
-> **Verify in the spike:** exact HearthMirror member names and the
-> `MedalInfo` shape differ between versions. The table above is the intent,
-> not the final API calls.
+> **Verified in the spike (milestone 1, run 2):** one Standard ranked win,
+> see [docs/open-questions.md](../docs/open-questions.md). Concede, loss and
+> disconnect behaviour are still to be observed.
 
 ### Game lifecycle (GameTracker state machine)
 
 ```text
-Idle ──GameStarted──► InGame ──STATE COMPLETE──► AwaitingRank ──rank changed | timeout──► Upload ──► Idle
+Idle ──scene GAMEPLAY + ranked──► InGame ──SeasonGames +1──► Upload ──► Idle
+                                    │
+                                    └─ scene left GAMEPLAY, no +1 within the grace window ──► drop (warn) ──► Idle
 ```
 
-- **GameStarted:** if the game type is not in `UploadedModes`, stay `Idle`
-  for this game. Otherwise create `GameId`, snapshot pre-match medal info,
-  region, names.
-- **STATE COMPLETE:** capture result/conceded/turns. If `Turns < 1`, drop the
-  game (same rule as the plugin's 0-turn guard).
-- **AwaitingRank:** poll `GetMedalInfo()` every ~250 ms for up to **8 s**
-  (same budget as the plugin). The post-match rank is "ready" when it differs
-  from the pre-match snapshot, or is non-null after the match-end screen
-  loaded. On timeout, upload with whatever is available and log a warning —
-  same behaviour as today.
-- Polling runs on a background thread. Nothing blocks the log tail.
+- **Game start** (scene becomes `GAMEPLAY`): if `GetGameType()` is not in
+  `UploadedModes`, stay `Idle` for this game. Otherwise create `GameId`, note
+  the start time, snapshot the `MedalInfo` entry of the played format (from
+  `GetFormat()`), and read region. Retry `MatchInfo` (about 1 s interval, up
+  to ~30 s) until it is non-null; cache names, BattleTags, game type and
+  format, because they reset to empty when the player leaves.
+- **InGame:** sample about once per second. When `SeasonGames` of the played
+  format is greater than in the snapshot, the game is over and the rank is
+  updated: read the entry as the post-match rank, set `result` from
+  `SeasonWins`, set the end time, and upload.
+- **Left without rank update:** if the scene leaves `GAMEPLAY` and no
+  `SeasonGames` increase is seen, keep the game pending and keep watching the
+  played format's `SeasonGames` for a bounded time (proposed 10 min), then
+  drop it with a warning, because completion cannot be confirmed (replaces the
+  plugin's 0-turn guard). Concedes (early and mid-game) and a normal loss were
+  tested: the update always arrived 11–14 s before the player left the game
+  screen, so a longer wait only matters for disconnects.
+- **Network loss:** the scene becomes `FATAL_ERROR` (the Reconnect dialog),
+  `BattleTag` reads `null`, and `GameType`/`Format`/`MatchInfo` clear about 4 s
+  later. There is no rank update and no `Power.log` end line during the outage,
+  so this is the "left without rank update" case above, never a drop on the
+  scene change alone. Whether the server later counts the game as a forfeit is
+  not yet observed (item B13).
+- **A failed read is not a game end.** When Hearthstone is killed or crashes,
+  HearthMirror calls return `null`/`0` and log `Access is denied`; the game
+  type even reads `0`, the same as "not in a game". The tracker treats null
+  `MedalInfo`/`AccountId` as "read failed", checks that `Hearthstone.exe` is
+  still running, and drops the game in progress (no partial upload) when the
+  process is gone. Tested by killing Hearthstone during a game.
+- Only the played format's entry is compared: other formats' values change on
+  their own (Wild Legend rank moved 724 → 726 during a Standard game).
+- Polling runs on a background thread.
 
 If the app starts mid-game, it ignores that game (no pre-match snapshot to
 compare against) and begins tracking from the next one.
@@ -103,18 +132,28 @@ Unchanged from the plugin so the backend needs no work:
 - **Retry queue (new vs. the plugin):** on failure, append the payload to
   `%LocalAppData%\HSJeeves\pending-uploads.jsonl` with attempt count and
   first-attempt time. Retry on startup and every few minutes; drop after 20
-  attempts or 7 days. Safe because `gameId` is idempotent server-side.
+  attempts or 7 days. Safe because `gameId` is idempotent server-side (a
+  repeat POST returns 200).
 - Without an `ApiKey`, log a warning and skip uploading (as today).
-- **One open question for the backend:** `OpponentBattleTag`/rank fields and
-  `rank.Rank` come from HDT's `GameStats`; confirm the backend actually uses
-  each field so we don't port fields nobody reads.
+- **Response handling** (from the backend source): `200` = done (stored or
+  duplicate); `401` = key missing, invalid or revoked → stop retrying, tray
+  warning "run /hdttoken"; `400` = our payload is wrong → drop, keep a copy in
+  a rejected file; network errors, `408`, `429`, `5xx` → retry with backoff.
+- **Backend contract rules** (the API is not changed for v1): every field in
+  the payload is required and non-null except `region`. So: `wasConceded` is
+  always `true`/`false` (`false` if the log is unavailable); `opponentBattleTag`
+  is `""` if unknown; `rank.Rank` is `0`; `endTime` is after `startTime`, both
+  with an explicit UTC offset. The bot only uses games with `gameMode`
+  `Ranked`, `format` Standard/Wild, `leagueId` 5 and a known `region`.
+- **Test connection:** `GET {ApiUrl}/check` with the bearer key: `200` valid,
+  `401` invalid or revoked (new endpoint, added to the backend).
 
 ## Settings and first-run setup
 
 Stored per user in `%LocalAppData%\HSJeeves\settings.json`:
 
 ```json
-{ "apiUrl": "https://…/API", "apiKey": "", "startWithWindows": true }
+{ "apiUrl": "https://dee-service.cc/API", "apiKey": "", "startWithWindows": true }
 ```
 
 - The installer writes `apiUrl` (default) and `apiKey` (from the wizard,
@@ -127,27 +166,31 @@ Stored per user in `%LocalAppData%\HSJeeves\settings.json`:
 - If the key is empty on launch, the tray icon shows a warning state and
   clicking it opens Settings.
 
-### Log configuration
+### Log configuration (for the concede flag only)
 
-HearthMirror reads memory, but game-end detection needs `Power.log`. On
+`Power.log` is only written when `log.config` has a `[Power]` section. On
 startup the app checks `%LocalAppData%\Blizzard\Hearthstone\log.config`:
 
 - file missing → create it with a `[Power]` section (`LogLevel=1`,
   `FilePrinting=true`, `ConsolePrinting=false`, `Verbose=true`);
-- file exists with a `[Power]` section → leave untouched;
+- file exists with a `[Power]` section → leave untouched (HDT users already have it);
 - file exists without one → **append** the section, never overwrite
-  (HDT manages the same file).
+  (HDT manages the same file); handle a read-only file as HDT's
+  `LogConfigUpdater` does.
 
-Changes to `log.config` only apply on the next Hearthstone launch; the tray
-status says "Restart Hearthstone once to enable logging" when the app had to
-change it.
+Changes only apply on the next Hearthstone launch. Until then games are still
+tracked, but `wasConceded` is sent as `false`; the tray status says "Restart
+Hearthstone once to enable concede detection". The install folder and the
+newest `Logs\Hearthstone_<timestamp>\Power.log` are found from the
+`Hearthstone.exe` process path (to be confirmed, item B1).
 
 ## Running alongside HDT
 
-- Both only read. The app opens `Power.log` with
-  `FileShare.ReadWrite | FileShare.Delete` and handles the game
-  truncating/rotating the file on launch.
-- Poll game memory only around game start and end, not continuously.
+- Both only read. Process memory is read-only; `Power.log` is opened with
+  `FileShare.ReadWrite | FileShare.Delete`. `log.config` is only ever
+  appended to, never overwritten (HDT manages the same file).
+- Sample game memory about once per second (cheap reads; the spike did this
+  without errors).
 - Ship a pinned HearthMirror build; after a game patch it may fail until
   updated, so a failed read must degrade gracefully (log, retry, upload with
   partial data), never crash the app.
@@ -175,7 +218,7 @@ src/
   lib/               (HearthMirror.dll + dependencies, not committed: licence unverified)
   HSJeeves.Spike/    (milestone 1 console spike)
   HSJeeves/          (app: tray, components above)
-  HSJeeves.Tests/    (GameTracker state machine, log parsing, payload)
+  HSJeeves.Tests/    (GameTracker state machine, payload, retry queue)
 installer/
   HSJeeves.iss       (Inno Setup script)
   build.ps1          (publish app -> compile installer)
@@ -185,8 +228,9 @@ docs/
   how-to.md          (player installation and setup guide)
 ```
 
-Unit-testable without the game: log parsing (fixtures from real
-`Power.log` snippets), the `GameTracker` state machine (fake `RankReader`),
+Unit-testable without the game: the `GameTracker` state machine (fake
+`RankReader` fed with recorded sample sequences, e.g. from
+`logs/log-spike.log`),
 payload construction, retry queue.
 
 ## Windows installer (final step)
@@ -213,8 +257,6 @@ payload construction, retry queue.
   updates never ask again.
 - Start Menu shortcut; optional tasks (ticked by default): **Start with
   Windows**, **Launch HSJeeves now**.
-- Creating or extending `log.config` is **left to the app**, not the
-  installer, so the logic lives in one place and is testable.
 - Detects and closes a running HSJeeves before upgrading (`CloseApplications`
   or a mutex check).
 - **Uninstall:** removes program files and the autostart entry; asks whether
@@ -247,12 +289,17 @@ Given the 30 Nov deadline, order by risk:
 1. **Spike (console):** reference HearthMirror, print `GetMedalInfo()`,
    `GetAccountId()`, match info while Hearthstone is running **with HDT
    open**. Settles framework target, API names, licence, coexistence.
-2. **LogWatcher + GameTracker:** detect game start/end/result from
-   `Power.log`, unit-tested against fixtures.
-3. **Rank capture:** pre/post-match snapshot and the post-match polling.
+   *Done for one Standard win. Still to observe: a loss, a concede, a
+   disconnect, a Wild game, and a run with HDT confirmed open.*
+2. **RankReader + GameTracker:** detect game start/end/result from memory
+   samples, unit-tested against recorded sample sequences.
+3. **Rank capture:** pre/post-match snapshot of the played format.
+   **ConcedeWatcher:** `log.config` handling plus the concede-only log
+   reader, unit-tested against lines from a real `Power.log`.
 4. **Uploader + retry queue + settings:** end-to-end to the backend,
-   running side by side with the old plugin to compare payloads.
-5. **Tray UI + autostart + log.config handling.**
+   running side by side with the old plugin to compare payloads (use a test
+   endpoint or key, see D5).
+5. **Tray UI + autostart.**
 6. **Installer** (`HSJeeves.iss`, `build.ps1`), test on a clean Windows
    user account/VM: install → paste key → play a ranked game → see it
    upload → upgrade-in-place → uninstall.
@@ -264,7 +311,8 @@ Given the 30 Nov deadline, order by risk:
 |---|---|
 | HearthMirror offsets break after a game patch | Pin a version, degrade gracefully, keep an update path (rebuild + new installer). |
 | HearthMirror licence/redistribution unclear | Check in the spike, before building around it. |
-| Post-match rank not available in time | 8 s polling window, upload partial data, retry/reconcile is a possible later improvement. |
-| Hearthstone launched before `log.config` exists | App writes it and tells the user to restart Hearthstone once. |
+| Rank update never seen (concede, disconnect, slow server) | Grace window after leaving the game screen, then drop with a warning; to be tested with a concede and a disconnect. |
+| Hearthstone launched before `log.config` has a `[Power]` section | App adds it; the first game(s) are tracked with `wasConceded = false` (unknown) until Hearthstone is restarted. |
+| Concede line arrives late or not at all | Short wait before upload (to be measured, B12); otherwise `false`. Draws still read as losses unless the log also gives `TIED`. |
 | SmartScreen warning on unsigned installer | Document it, or sign the installer. |
 | Missing the 30 Nov date | Milestones 1–4 deliver a working replacement; the tray UI and installer polish can follow, running the app manually meanwhile. |

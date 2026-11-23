@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- HSJeeves tray app. See design/hsjeeves-app.md. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>10</LangVersion>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>HSJeeves</AssemblyName>
+    <RootNamespace>HSJeeves</RootNamespace>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\HSJeeves.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Also embedded so the tray icon can load it at runtime. -->
+    <EmbeddedResource Include="Assets\HSJeeves.ico" LogicalName="HSJeeves.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Not committed (licence unverified): copy HearthMirror and friends into src/lib, see docs/build.md. -->
+    <Reference Include="HearthMirror"><HintPath>..\lib\HearthMirror.dll</HintPath></Reference>
+    <Reference Include="untapped-scry-dotnet"><HintPath>..\lib\untapped-scry-dotnet.dll</HintPath></Reference>
+    <Reference Include="System.Reflection.DispatchProxy"><HintPath>..\lib\System.Reflection.DispatchProxy.dll</HintPath></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>..\lib\Newtonsoft.Json.dll</HintPath></Reference>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+</Project>

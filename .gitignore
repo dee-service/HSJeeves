@@ -6,3 +6,9 @@ dist/
 
 # third-party binaries copied from HDT (HearthMirror licence unverified, do not commit)
 src/lib/
+
+# runtime logs from spikes and the app
+logs/
+
+# local test API stand-in (not part of the product)
+test-api/
