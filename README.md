@@ -47,3 +47,15 @@ src\HSJeeves.Spike\bin\Release\net472\HSJeeves.Spike.exe   # with Hearthstone ru
 - **Local files:** settings, queue and logs are in `%APPDATA%\HSJeeves`. Logs
   rotate after 7 days. "Dry run" in Settings writes payloads to a folder and
   uploads nothing.
+
+## Switching from the HDT plugin
+
+HSJeeves starts in **dry-run mode**: it detects games and writes the payloads to
+`%APPDATA%\HSJeeves\dryrun` but uploads nothing, so it cannot double-count games
+next to the old RankTracker plugin. To go live:
+
+1. In HDT, switch off the RankTracker plugin (Options > Plugins).
+2. In HSJeeves, open Settings, paste your key, untick **Dry run**, Save.
+
+While dry run is on, the tray icon shows a warning and every finished game
+shows a "NOT uploaded" notice.

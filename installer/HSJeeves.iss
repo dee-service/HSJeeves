@@ -148,6 +148,7 @@ begin
     if WizardIsTaskSelected('startup') then StartFlag := 'true' else StartFlag := 'false';
     Json := '{' + #13#10 +
             '  "ApiUrl": "https://dee-service.cc/API",' + #13#10 +
+            '  "DryRun": true,' + #13#10 +
             '  "StartWithWindows": ' + StartFlag;
     if Key <> '' then
       Json := Json + ',' + #13#10 + '  "ApiKey": "' + JsonEscape(Key) + '"';

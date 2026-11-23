@@ -11,7 +11,7 @@ namespace HSJeeves
 	public sealed class Settings
 	{
 		public string ApiUrl { get; set; } = "https://dee-service.cc/API";
-		public bool DryRun { get; set; } = false;
+		public bool DryRun { get; set; } = true; // safe default: no uploads until the HDT plugin is off (H2)
 		public bool StartWithWindows { get; set; } = true;
 		// Optional: Hearthstone install folder, only needed when it cannot be found automatically (B1).
 		public string? HearthstoneDirectory { get; set; }

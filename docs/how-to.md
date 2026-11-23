@@ -1,133 +1,132 @@
-# HSJeeves — installation and setup
+# HSJeeves: installation and setup
 
 HSJeeves is a small Windows app that runs in the background while you play
 Hearthstone. After every finished **ranked** match it sends your result and
 your rank before and after the match to Jeeves, so your rank history is
 tracked automatically. You don't have to do anything while you play.
 
-> **Draft.** This guide describes the installer and app as designed in
-> [design/hsjeeves-app.md](../design/hsjeeves-app.md). Menu names, file names
-> and the download link are placeholders until the first release. Items marked
-> *(TODO)* need to be confirmed against the real installer.
-
 ## What you need
 
-- Windows 10 or 11 (64-bit).
+- Windows 10 or 11 (64-bit) with .NET Framework 4.7.2 or newer (already part
+  of current Windows).
 - Hearthstone installed through the Battle.net app.
 - A Jeeves account on Discord, to get your API key.
 - Hearthstone Deck Tracker (HDT) is **not** required. If you have it, HSJeeves
-  runs alongside it without any conflict.
+  runs next to it, but see "Switching from the HDT plugin" below.
 
 ## 1. Get your API key
 
 1. Open Discord and send the command `/hdttoken` to the **Jeeves** bot.
-2. Jeeves replies with a direct message containing your API key.
-3. Keep that message open. You will paste the key during setup.
-
-The key is personal. Don't share it: anyone who has it can post results as
-you. If it leaks, run `/hdttoken` again to get a new one *(TODO: confirm that
-this revokes the old key)*.
+2. Jeeves replies with your API key. If you used the old HDT RankTracker
+   plugin, the same key works.
+3. Keep the key private: anyone who has it can post results as you.
 
 ## 2. Install
 
-1. Download `HSJeeves-Setup-<version>.exe` from *(TODO: release page link)*.
-2. Run it. You don't need administrator rights, because HSJeeves installs for
+1. Download `HSJeeves-Setup-<version>.exe` from the release page *(link to be
+   added when the release is published)*.
+2. **Optional check:** the release page lists a SHA-256 checksum. In PowerShell:
+   `Get-FileHash .\HSJeeves-Setup-<version>.exe -Algorithm SHA256`. The value
+   must match the one on the release page.
+3. Run the installer. You don't need administrator rights: it installs for
    your Windows user only.
-3. If Windows shows **"Windows protected your PC"**, click **More info**, then
-   **Run anyway**. This warning appears for installers without a paid
-   publisher certificate. *(Remove this step if the installer gets signed.)*
-4. Follow the wizard:
-   - **Your Jeeves API key:** paste the key from step 1. You can leave it empty
-     and enter it later in Settings (see below).
-   - **Additional tasks:** keep **Start HSJeeves with Windows** ticked so it
-     is always running when you play. Keep **Launch HSJeeves now** ticked.
-5. Click **Finish**. A HSJeeves icon appears in the notification area at the
-   bottom right of the taskbar. If you don't see it, click the **^** arrow to
-   show hidden icons.
+4. **Windows will warn you.** The installer is not code-signed, so Windows
+   SmartScreen shows "Windows protected your PC" and "Unknown publisher".
+   Click **More info**, then **Run anyway**. Your browser may also ask you to
+   confirm that you want to keep the download.
+5. In the wizard:
+   - **API key:** paste the key from step 1. You can leave it empty and enter
+     it later in Settings.
+   - **Hearthstone folder:** this page appears only if the installer could not
+     find Hearthstone. Select the folder that contains `Hearthstone.exe`.
+   - **Start HSJeeves when I sign in to Windows:** keep it ticked so the app is
+     running when you play.
+6. Finish. A HSJeeves icon appears in the notification area (click the **^**
+   arrow next to the clock if you don't see it).
 
-## 3. Restart Hearthstone once
+## 3. Switching from the HDT plugin
 
-HSJeeves reads Hearthstone's game log to detect when a match ends. On first
-start it switches that log on for you, but Hearthstone only picks up the
-change when it starts.
+HSJeeves starts in **dry-run mode**: it detects your games and writes them to a
+folder, but uploads nothing. This keeps a game from being counted twice if the
+old HDT RankTracker plugin is still active. To go live:
 
-- If Hearthstone is running when you first start HSJeeves, **close it and open
-  it again**. HSJeeves shows *"Restart Hearthstone once to enable logging"*
-  when this is needed.
-- You only have to do this once.
+1. In HDT, switch off the RankTracker plugin (**Options > Plugins**).
+2. In HSJeeves, right-click the tray icon > **Settings**, paste your key if
+   needed, click **Test connection**, **untick Dry run**, then **Save**.
 
-If you use HDT, the log is probably already enabled and no restart is needed.
+While dry run is on, the tray icon shows a warning symbol and every finished
+game shows a "NOT uploaded" notice.
 
-## 4. Check that it works
+## 4. Restart Hearthstone once
 
-1. Start Hearthstone. The HSJeeves tray icon shows that it found the game
-   *(TODO: describe the icon states: waiting for Hearthstone, tracking, key
-   missing, error)*.
-2. Play a ranked match (Standard or Wild). Concedes count too.
-3. A few seconds after the match ends, the result is sent. Right-click the
-   tray icon to see the status of the last upload.
-4. Check your rank history on the Jeeves side *(TODO: where players see it)*.
+HSJeeves reads Hearthstone's game log to see whether a game ended by a concede.
+On first start it switches that log on, but Hearthstone only applies the change
+when it starts. If Hearthstone was already running, close it and open it again
+once. Without the log, games are still uploaded, but never marked as conceded.
 
-Casual, Arena, Battlegrounds, Mercenaries and friendly games are not
-uploaded.
+## 5. Check that it works
+
+1. Start Hearthstone. The tray menu shows "Hearthstone: connected" and your
+   region.
+2. Play a ranked match (Standard, Wild, Classic or Twist). Concedes count.
+3. A few seconds after the match, the tray menu shows it under "Last game" and
+   the upload status. A balloon notice appears only for problems.
+
+Casual, Arena, Battlegrounds, Mercenaries and friendly games are not uploaded.
+Ranks differ per region (US, EU, AP), and HSJeeves handles all of them.
 
 ## Settings
 
-Right-click the tray icon and choose **Settings** to:
+Right-click the tray icon and choose **Settings** (or double-click the icon):
 
-- change or paste your **API key**, then use **Test connection** to check it;
-- turn **Start with Windows** on or off.
+- **API URL and API key**, with **Test connection**;
+- **Dry run** on or off;
+- **Start with Windows**;
+- **Hearthstone folder**, only if it was not found automatically.
 
-## Running next to HDT
-
-HSJeeves and HDT only read from the game, so they can run at the same time.
-After a Hearthstone update, one of them may work again a little before the
-other. When that happens, HSJeeves keeps trying, and the match is uploaded
-once reading works again.
+**Save** applies the changes and closes the window.
 
 ## Updating
 
-Run the newer installer over the existing installation. It closes HSJeeves,
-replaces the files and keeps your settings and API key, so it doesn't ask
-for the key again.
+Run the newer installer. It closes the running app, replaces the files and
+keeps your settings and key.
 
 ## Uninstalling
 
-**Settings → Apps → Installed apps → HSJeeves → Uninstall.** The uninstaller
-asks whether to also delete your settings, the upload queue and the logs. It
-also removes HSJeeves from Windows startup.
+**Settings > Apps > Installed apps > HSJeeves > Uninstall.** This removes the
+app and its startup entry. Your settings, queue and logs stay in
+`%APPDATA%\HSJeeves`; delete that folder too if you want a full cleanup.
 
 ## Troubleshooting
 
 | Problem | What to do |
 |---|---|
 | No tray icon | Click the **^** arrow next to the clock. Otherwise start HSJeeves from the Start menu. |
-| Icon says the API key is missing | Open **Settings** and paste your key from `/hdttoken`. |
-| Matches don't upload | Use **Test connection** in Settings. Check that your key is correct and that you're online. Failed uploads are saved and retried automatically, so nothing is lost. |
-| Nothing happens after a match | Make sure the game mode was ranked. Close and restart Hearthstone once so logging is switched on. |
-| Rank is missing from an upload | The game didn't report the new rank in time. The match is still recorded. If this happens a lot, send us the log file (below). |
+| Warning icon: "DRY RUN" | Dry run is on. See "Switching from the HDT plugin". |
+| Warning icon: API key missing or rejected | Open Settings, paste a current key from `/hdttoken`. |
+| "Hearthstone folder not found" | Settings > Hearthstone folder > Browse, then select the folder with `Hearthstone.exe`. |
+| Games are not uploaded | Check Settings > **Test connection**, and that Dry run is off. Failed uploads are kept and retried for up to 7 days, so nothing is lost. |
 | Stopped working after a Hearthstone update | Reading the game's memory can break after a patch until HSJeeves is updated. Install the latest version. |
 
 ### Files and logs
 
-HSJeeves keeps everything under `%LocalAppData%\HSJeeves\`:
+Everything is under `%APPDATA%\HSJeeves\`:
 
 | Path | Contents |
 |---|---|
 | `settings.json` | Your settings. The API key is stored encrypted. |
-| `pending-uploads.jsonl` | Matches waiting to be re-sent after a failed upload. |
-| `logs\` | Log files. Attach the latest one when you report a problem. |
-
-The logs never contain your API key.
+| `queue\` | Finished games waiting to be uploaded. |
+| `rejected\` | Games the server refused (bad data). |
+| `dryrun\` | Games written while Dry run was on. |
+| `logs\` | Daily log files, kept for 7 days. Tray menu > **Open logs folder**. The logs never contain your key. |
 
 ## What HSJeeves sends
 
-For each finished ranked match: a unique match ID, start and end time, mode
-and format, result, whether you conceded, your region, your BattleTag and your
-opponent's BattleTag, and your rank before and after the match. It does not
-send chat, decks, friends or collection data.
+For each finished ranked match: a unique match ID, start and end time, format,
+result, whether a player conceded, your region and BattleTag, **the opponent's
+BattleTag**, and your rank before and after. It does not send chat, decks,
+friends or collection data.
 
 ## For developers
 
-To build HSJeeves and the installer yourself, see
-[design/hsjeeves-app.md](../design/hsjeeves-app.md).
+See [build.md](build.md) and [design/hsjeeves-app.md](../design/hsjeeves-app.md).

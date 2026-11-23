@@ -178,16 +178,16 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
   - Decision / result: done in the script: checks .NET Framework Release >= 461808 (4.7.2) in InitializeSetup and stops with a download link if missing. Untested until the installer is compiled and run.
 - [x] **G3 (R)** Version source of truth (assembly version) and release naming (`HSJeeves-Setup-x.y.z.exe`).
   - Decision / result: done: the `<Version>` in `src/HSJeeves/HSJeeves.csproj` is the single source; `installer/build.ps1` reads it and passes it to Inno as AppVersion; output is `dist/HSJeeves-Setup-<version>.exe` (dist/ is git-ignored).
-- [ ] **G4 (R)** Code signing: sign, or document the SmartScreen "Run anyway" step? Decide before publishing.
+- [x] **G4 (R)** (decided 2026-11-23: ship UNSIGNED. build.ps1 writes a .sha256 next to the installer; docs/how-to.md explains the SmartScreen "Run anyway" step and how to verify the checksum. Revisit: Azure Trusted Signing, and a winget manifest as a free second route.) Code signing: sign, or document the SmartScreen "Run anyway" step? Decide before publishing.
   - Decision / result:
 - [ ] **G5 (S)** (partly tested 2026-11-23 on the dev machine, silent mode: fresh install writes valid settings.json and the Run key, upgrade keeps settings untouched, uninstall removes files and the Run key and keeps settings and logs. NOT tested: wizard pages by eye (key page, folder page), key entry, in-place upgrade over a running app, clean Windows user or VM, SmartScreen) Test on a clean Windows user or VM: install, paste key, play, upload, upgrade in place, uninstall.
   - Decision / result:
-- [ ] **G6 (S)** Where the release is published (GitHub release in this repo?) and who can download it.
+- [ ] **G6 (S)** (in progress 2026-11-23: installers are published to the Jeeves website, HS-Snake branch `hsjeeves-downloads`: /downloads/ + versions.json, newest 3 kept, via installerpublish.ps1. Open: merge + deploy that branch, create `./downloads` on the server, first publish, fill in the link in docs/how-to.md.) Where the release is published (GitHub release in this repo?) and who can download it.
   - Decision / result:
 
 ## H. Schedule
 
-- [ ] **H1 (B)** Cut line for 30 Nov: milestones 1–4 (working uploads, run manually) are the minimum. Confirm that the tray UI and installer can follow after the deadline.
+- [x] **H1 (B)** (closed 2026-11-23: confirmed OK) Cut line for 30 Nov: milestones 1–4 (working uploads, run manually) are the minimum. Confirm that the tray UI and installer can follow after the deadline.
   - Decision / result:
-- [ ] **H2 (R)** Plan for the last day of plugin support: when to switch players from the plugin to HSJeeves, and when to archive the plugin.
+- [x] **H2 (R)** (decided 2026-11-23: HSJeeves starts in dry-run mode so it cannot double-upload next to the HDT plugin; a tray notice at start and after every dry-run game says nothing was uploaded and asks to switch the plugin off (HDT > Options > Plugins) and untick Dry run. Archiving the plugin: after 30 Nov.) Plan for the last day of plugin support: when to switch players from the plugin to HSJeeves, and when to archive the plugin.
   - Decision / result:

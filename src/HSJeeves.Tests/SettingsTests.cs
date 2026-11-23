@@ -26,7 +26,7 @@ namespace HSJeeves.Tests
 		public void Key_IsStoredProtected_AndNeverAsPlainText()
 		{
 			ResetSettingsFile();
-			var s = new Settings { Key = "super-secret-key" };
+			var s = new Settings { DryRun = false, Key = "super-secret-key" };
 			s.Save();
 			var raw = File.ReadAllText(AppPaths.SettingsFile);
 			Assert.DoesNotContain("super-secret-key", raw);
@@ -55,6 +55,7 @@ namespace HSJeeves.Tests
 			var s = Settings.Load();
 			Assert.Equal("https://dee-service.cc/API", s.ApiUrl);
 			Assert.Equal("", s.Key);
+			Assert.True(s.DryRun); // safe default until the HDT plugin is switched off
 			Assert.True(File.Exists(AppPaths.SettingsFile));
 		}
 
@@ -118,7 +119,7 @@ namespace HSJeeves.Tests
 			foreach(var d in new[] { AppPaths.Queue, AppPaths.DryRun })
 				if(Directory.Exists(d)) Directory.Delete(d, true);
 			var h = new Handler();
-			var q = new UploadQueue(new Settings { Key = "" }, new HttpClient(h));
+			var q = new UploadQueue(new Settings { DryRun = false, Key = "" }, new HttpClient(h));
 			q.Enqueue(new JObject { ["gameId"] = Guid.NewGuid().ToString() });
 			q.Flush();
 			Assert.True(q.MissingKey);

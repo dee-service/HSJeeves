@@ -15,7 +15,7 @@ namespace HSJeeves
 		private readonly TextBox _key = new TextBox { UseSystemPasswordChar = true };
 		private readonly CheckBox _show = new CheckBox { Text = "Show key", AutoSize = true };
 		private readonly Label _result = new Label { AutoSize = false };
-		private readonly CheckBox _dry = new CheckBox { Text = "Dry run (write payloads to a folder, do not upload)", AutoSize = true };
+		private readonly CheckBox _dry = new CheckBox { Text = "Dry run - nothing is uploaded (untick after switching off the HDT plugin)", AutoSize = true };
 		private readonly CheckBox _auto = new CheckBox { Text = "Start with Windows", AutoSize = true };
 		private readonly TextBox _hsDir = new TextBox();
 

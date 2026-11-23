@@ -23,3 +23,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
 & $iscc "/DAppVersion=$version" (Join-Path $PSScriptRoot 'HSJeeves.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
 Write-Host "Done: dist\HSJeeves-Setup-$version.exe"
+
+# The installer is not code-signed (decision G4). Publish this checksum next to the download
+# so players can verify the file: Get-FileHash .\HSJeeves-Setup-<version>.exe -Algorithm SHA256
+$setup = Join-Path $root "dist\HSJeeves-Setup-$version.exe"
+$hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
+"$hash  HSJeeves-Setup-$version.exe" | Set-Content -Encoding ascii (Join-Path $root "dist\HSJeeves-Setup-$version.exe.sha256")
+Write-Host "SHA-256: $hash"

@@ -32,6 +32,7 @@ namespace HSJeeves
 		private readonly Tracking.TrackerService _service;
 		private readonly Tracking.ConcedeWatcher _concede;
 		private bool _warnedFolder;
+		private int _dryRunSeen;
 		private readonly ToolStripMenuItem _statusItem = new ToolStripMenuItem { Enabled = false };
 		private readonly ToolStripMenuItem _gameItem = new ToolStripMenuItem { Enabled = false };
 		private readonly ToolStripMenuItem _uploadItem = new ToolStripMenuItem { Enabled = false };
@@ -73,25 +74,44 @@ namespace HSJeeves
 			_refresh.Start();
 			Refresh();
 
-			if(string.IsNullOrEmpty(_settings.Key) && !_settings.DryRun)
+			_dryRunSeen = _service.Queue.DryRunWritten;
+			if(string.IsNullOrEmpty(_settings.Key))
 			{
 				_warned = true;
 				_icon.ShowBalloonTip(8000, "HSJeeves needs an API key", "Click here and paste the key from /hdttoken in Discord.", ToolTipIcon.Warning);
 			}
+			else if(_settings.DryRun)
+				_icon.ShowBalloonTip(10000, "HSJeeves is in dry-run mode", DryRunAdvice, ToolTipIcon.Warning);
 		}
+
+		// The old HDT plugin uploads the same games; two uploaders would count a game twice.
+		private static readonly string PluginDll = System.IO.Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HearthstoneDeckTracker", "Plugins", "RankTrackerPlugin.dll");
+
+		private static string DryRunAdvice =>
+			"Nothing is uploaded yet. " +
+			(System.IO.File.Exists(PluginDll) ? "The HDT RankTracker plugin is installed: switch it off in HDT (Options > Plugins) so games are not uploaded twice, then " : "To go live, ") +
+			"untick Dry run in HSJeeves Settings.";
 
 		// Icon states: normal, or warning when uploads cannot work (no key, or key rejected).
 		private void Refresh()
 		{
 			var q = _service.Queue;
 			var noKey = string.IsNullOrEmpty(_settings.Key) && !_settings.DryRun;
-			var warn = noKey || q.KeyRejected;
+			var warn = noKey || q.KeyRejected || _settings.DryRun; // dry run keeps the warning icon as a reminder
+
+			// Every dry-run game gets a notice: it was NOT uploaded.
+			if(q.DryRunWritten != _dryRunSeen)
+			{
+				_dryRunSeen = q.DryRunWritten;
+				_icon.ShowBalloonTip(10000, "Game NOT uploaded (dry run)", "This was a test run, nothing was sent. " + DryRunAdvice, ToolTipIcon.Warning);
+			}
 
 			_statusItem.Text = _service.HearthstoneStatus + (_service.InGame ? " - ranked game in progress" : "");
 			_gameItem.Text = "Last game: " + _service.LastGame;
 			_uploadItem.Text = noKey ? "API key missing - open Settings"
 				: q.KeyRejected ? "API key rejected - run /hdttoken, update Settings"
-				: _settings.DryRun ? "Dry run: nothing is uploaded"
+				: _settings.DryRun ? "DRY RUN - nothing uploaded. Switch off HDT plugin, untick Dry run"
 				: "Waiting to upload: " + q.PendingCount;
 			// Hearthstone is running but its Logs folder is not found: concede detection stays off until the user points us to it.
 			if(_service.HearthstoneStatus.Contains("connected") && !_concede.LogsDirFound)

@@ -18,6 +18,8 @@ namespace HSJeeves.Upload
 		private readonly object _gate = new object();
 
 		public bool KeyRejected { get; private set; }
+		// Games written to the dry-run folder instead of uploaded (the tray shows a notice for each).
+		public int DryRunWritten { get; private set; }
 		public bool MissingKey { get; private set; } = true;
 
 		public int PendingCount => Directory.Exists(AppPaths.Queue) ? Directory.GetFiles(AppPaths.Queue, "*.json").Length : 0;
@@ -62,6 +64,7 @@ namespace HSJeeves.Upload
 				File.WriteAllText(Path.Combine(AppPaths.DryRun, id + ".json"), payload.ToString(Formatting.Indented));
 				File.Delete(file);
 				Log.Info("dry run: payload written for game " + id);
+				DryRunWritten++;
 				return;
 			}
 			MissingKey = string.IsNullOrEmpty(_settings.Key);
