@@ -138,6 +138,79 @@ namespace HSJeeves.Tests
 			Assert.True(g!.Won);
 		}
 
+		private static Snapshot WithAccount(Snapshot s, string region, string key)
+		{
+			s.Region = region;
+			s.AccountKey = key;
+			return s;
+		}
+
+		[Theory]
+		[InlineData("US")]
+		[InlineData("EU")]
+		[InlineData("AP")]
+		public void GameCarriesTheRegionOfItsAccount(string region)
+		{
+			var t = new GameTracker();
+			var g = Run(t,
+				WithAccount(Snap(10, 4, 7, 2, true), region, "acc"),
+				WithAccount(Snap(200, 4, 7, 2, true, 94, 44), region, "acc"));
+			Assert.NotNull(g);
+			Assert.Equal(region, g!.Region);
+		}
+
+		[Fact]
+		public void RegionSwitchWhileGamePending_DropsTheGame()
+		{
+			var t = new GameTracker();
+			Run(t, WithAccount(Snap(10, 4, 7, 2, true), "EU", "eu-acc"));
+			// Hearthstone restarted on the US account; its medals must not be compared with the EU game.
+			var ev = t.Update(WithAccount(Snap(100, 3, 0, 0, false, 94, 44), "US", "us-acc"));
+			Assert.Single(ev);
+			Assert.Null(ev[0].Completed);
+			Assert.Contains("Account changed", ev[0].Dropped);
+			Assert.False(t.GameInProgress);
+		}
+
+		[Fact]
+		public void GamesInDifferentRegions_EachKeepTheirOwnRegionAndMedals()
+		{
+			var t = new GameTracker();
+			var eu = Run(t,
+				WithAccount(Snap(10, 4, 7, 2, true, 93, 43), "EU", "eu-acc"),
+				WithAccount(Snap(200, 4, 7, 2, true, 94, 44), "EU", "eu-acc"));
+			t.Update(WithAccount(Snap(300, 7), "EU", "eu-acc")); // leaves the end screen, restarts on the US account
+			var us = Run(t,
+				WithAccount(Snap(1000, 4, 7, 2, true, 10, 5), "US", "us-acc"),
+				WithAccount(Snap(1200, 4, 7, 2, true, 11, 5), "US", "us-acc"));
+			Assert.Equal("EU", eu!.Region);
+			Assert.True(eu.Won);
+			Assert.Equal("US", us!.Region);
+			Assert.False(us.Won);
+			Assert.Equal(10, us.Before.SeasonGames);
+		}
+
+		// Real behaviour on 2026-11-23: after the rank update the player stays on the defeat screen
+		// (scene GAMEPLAY, game type still ranked) until clicking away.
+		[Fact]
+		public void EndScreenAfterFinishedGame_IsNotANewGame()
+		{
+			var t = new GameTracker();
+			var g = Run(t, Snap(10, 4, 7, 2, true), Snap(200, 4, 7, 2, true, 94, 43));
+			Assert.NotNull(g);
+			Assert.Empty(t.Update(Snap(201, 4, 7, 2, true, 94, 43)));
+			Assert.Empty(t.Update(Snap(215, 4, 7, 2, true, 94, 43)));
+			Assert.False(t.GameInProgress);
+
+			// Leaving the game screen re-arms the tracker; the next ranked game is tracked normally.
+			t.Update(Snap(220, 7));
+			t.Update(Snap(300, 4, 7, 2, true, 94, 43));
+			Assert.True(t.GameInProgress);
+			var g2 = Run(t, Snap(400, 4, 7, 2, true, 95, 44));
+			Assert.NotNull(g2);
+			Assert.Equal(94, g2!.Before.SeasonGames);
+		}
+
 		[Fact]
 		public void SeasonGamesJumpsByMoreThanOne_IsDropped()
 		{

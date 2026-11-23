@@ -22,6 +22,7 @@ namespace HSJeeves.Tracking
 				GameType = gameType,
 				Format = format,
 				Region = Region.FromAccountHi(account.Value<ulong?>("Hi") ?? 0),
+				AccountKey = (account.Value<ulong?>("Hi") ?? 0) + ":" + (account.Value<ulong?>("Lo") ?? 0),
 				PlayerBattleTag = Tag(battleTag),
 				HasMatchInfo = matchInfo != null,
 			};

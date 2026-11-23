@@ -41,16 +41,21 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
 
 ## B. Game detection (milestone 2). `Power.log` is used only for the concede flag
 
-- [ ] **B1 (B)** How do we find the Hearthstone install folder and the newest `Logs\Hearthstone_<timestamp>\Power.log`? (Process path, registry, or user setting?) HDT uses `HearthstoneDirectory` from its config.
+- [x] **B1 (B)** (closed 2026-11-23: app looks in configured folder, process, registry InstallLocation, default folders; tray warning + Settings folder picker when not found; installer detects it and asks only when it cannot) How do we find the Hearthstone install folder and the newest `Logs\Hearthstone_<timestamp>\Power.log`? (Process path, registry, or user setting?) HDT uses `HearthstoneDirectory` from its config.
+  - Decision / result: implemented: `HearthstonePaths.FindLogsDir` tries settings `HearthstoneDirectory`, the Hearthstone.exe process path, then C:Program Files (x86)Hearthstone and C:Program FilesHearthstone; newest `Hearthstone_*Power.log` wins. Asking the user to pick a folder comes with the settings UI.
   - **Decision (user):** the installer checks the standard location (e.g. `C:\Program Files (x86)\Hearthstone`) and picks the newest `Logs\Hearthstone_<timestamp>\Power.log` that actually exists. If it cannot decide, it asks the user to point at the Hearthstone install folder and finds the logs from there. Also let the running app re-browse for the folder in Settings.
   - Result (partial): on this machine the logs are in `C:\Program Files (x86)\Hearthstone\Logs\Hearthstone_<timestamp>\Power.log` (one folder per Hearthstone launch, one `Power.log` for all games in that session). Finding the install folder from the `Hearthstone.exe` process path is still to be implemented and tested.
-- [ ] **B2 (B)** Collect real `Power.log` fixtures: a win, a loss, a concede, a draw, a disconnect/reconnect, a 0-turn game, a friendly game, a spectated game.
+- [x] **B2 (B)** Collect real `Power.log` fixtures: a win, a loss, a concede, a draw, a disconnect/reconnect, a 0-turn game, a friendly game, a spectated game.
+  - Decision / result: not needed in full: the app no longer parses game start/end from the log. Real concede lines from 2026-11-23 are used as test fixtures (ConcedeTests). Live: normal loss -> wasConceded=false, concede -> true.
   - Decision / result:
-- [ ] **B3 (B)** Parsing rules, taken from HDT (`HDT/.../Hearthstone Deck Tracker/LogReader/`): game start (`CREATE_GAME`), game end (`STATE=COMPLETE`), which player is the local player, `PLAYSTATE` values, turn count, concede detection.
+- [x] **B3 (B)** Parsing rules, taken from HDT (`HDT/.../Hearthstone Deck Tracker/LogReader/`): game start (`CREATE_GAME`), game end (`STATE=COMPLETE`), which player is the local player, `PLAYSTATE` values, turn count, concede detection.
+  - Decision / result: only the concede line is parsed (`GameState.DebugPrintPower() - TAG_CHANGE Entity=<tag> tag=PLAYSTATE value=CONCEDED`, GameState line only). Everything else (start, end, result, rank) comes from memory, so no CREATE_GAME/COMPLETE parsing is needed.
   - Decision / result:
-- [ ] **B4 (B)** `log.config`: reuse HDT's `LogConfigUpdater` logic? Handle a read-only file, and what exactly goes in the `[Power]` section.
+- [x] **B4 (B)** `log.config`: reuse HDT's `LogConfigUpdater` logic? Handle a read-only file, and what exactly goes in the `[Power]` section.
+  - Decision / result: implemented in `LogConfigUpdater`: missing file created with `[Power]` (LogLevel=1, FilePrinting=True, ConsolePrinting=False, ScreenPrinting=False, Verbose=True); existing section left alone; section appended (never overwritten); read-only flag cleared and restored. Unit-tested.
   - Decision / result:
-- [ ] **B5 (R)** App started mid-game: ignore it (design) or try to recover?
+- [x] **B5 (R)** App started mid-game: ignore it (design) or try to recover?
+  - Decision / result: ignore the *game*, but recover what memory allows: tested casual 2026-11-23, an app restarted mid-game recovers type, format, opponent and before-rank within ~2 s (start time = first seen). Used live: game 7d3db7d8 was picked up this way.
   - Decision / result:
 - [x] **B6 (R)** Hearthstone crashes or restarts while a game is in progress. Drop the game or upload with partial data?
   - Result (partial, crash tested with a casual game): the app survived and the failed reads were all null/0, so no upload happens (no `SeasonGames` increase seen). Proposed decision: **drop the game and log a warning**; do not upload partial data. Open: for a ranked game that was counted by the server after the crash, optionally compare the stored last `SeasonGames` on the next start and log the gap (reconcile later, not v1).
@@ -64,6 +69,7 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
 - [x] **B9 (B)** Can the game end be detected **without** `Power.log`? (Answer: yes, except the concede flag.) Run 2 suggests yes for the basics: `GAMEPLAY` scene entered, and `SeasonGames`/`SeasonWins` increasing at the end gives the result (win = `SeasonWins` also +1). Not available from memory: turn count, concede flag, exact end time. Decide: keep `Power.log` (design) or make it optional/later. This would remove `log.config`, log parsing and the restart-Hearthstone step from v1.
   - Decision: **partly kept.** Start, end, result and rank come from memory (scene `GAMEPLAY`, `SeasonGames` +1, `SeasonWins`), no log needed. `Power.log` is brought back **only** for the concede flag (`wasConceded`), because memory cannot provide it (run 3: concede and loss look identical) and the backend needs the field. Design doc updated.
 - [ ] **B8 (S)** Log file truncation/rotation on game launch with `FileShare.ReadWrite | FileShare.Delete`: confirm with a real restart.
+  - Decision / result: not tested with a real Hearthstone restart. Watcher handles truncation (position reset) and a new session folder (read from start); unit-tested only. Keep open until a real restart is observed.
   - Decision / result:
 - [x] **B12 (B)** Minimal log reader scope: only the concede flag (and optionally `TIED` for draws). Which line exactly (`TAG_CHANGE Entity=<name> tag=PLAYSTATE value=CONCEDED`)? Does it appear before our `SeasonGames` +1 (so the upload can wait a short time for it)? Does it mean *you* conceded or *either* player (HDT flags both)? Check with HDT's `TagChangeActions.cs:1000` and a real `Power.log` from the concede games played in run 3.
   - Result (real `Power.log` of run 3, session `Hearthstone_2026_11_21_15_54_09`, HDT had already created the `[Power]` section): the line is `GameState.DebugPrintPower() - TAG_CHANGE Entity=Deesnow#2794 tag=PLAYSTATE value=CONCEDED` (the entity is the BattleTag of whoever conceded, so it can be compared with the local tag from `MatchInfo`). It is repeated once more under `PowerTaskList`; use the `GameState` line only. Timing: game 1 line at 16:22:02.56 and game 2 at 16:27:15.27, the same moment as the rank update (spike saw it at 16:22:03.3 and 16:27:15.7), so the reader needs no long wait, about 2 s is enough. For normal wins/losses the memory update comes about 1 s after the `PowerTaskList` end lines (win 16:12:39.9 -> 16:12:40.7), and 38 s after the `GameState` end line (16:12:02) because the end animation plays first; the concede has no animation. Still open: the draw line (`TIED`) was not observed.
@@ -115,7 +121,8 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
   - Result: statuses from the source: `200` stored or duplicate; `401` missing, invalid or revoked token (checked **before** the body is read); `400` malformed JSON or a body that fails validation (the 422 default is overridden); a database error would be an unhandled `500`; the Cloudflare Tunnel in front can add `5xx` (52x) when the origin is down. Client policy: 200 = done; 401 = stop, mark key invalid, warn in the tray (do not retry); 400 = drop and keep a copy in a rejected file (our bug, retrying cannot help); network errors, 408, 429 and 5xx = retry with backoff (20 attempts or 7 days, as designed).
 - [x] **D4 (B)** "Test connection" button: no endpoint exists (`/health` takes no key). Add a backend endpoint, or change the feature?
   - Decision: **done on the backend.** `GET /API/check` added in `decktrackerAPI/main.py` (uses the same bearer auth as `POST /API`; 200 `{"status":"ok"}` for a valid key, 401 for a missing, invalid or revoked key, stores nothing). The Settings "Test connection" button calls it. Needs deploying to production before the button works there.
-- [ ] **D5 (B)** Parallel running with the old plugin creates duplicates (different `gameId`). Use a dry-run mode, a test endpoint, or a test key?
+- [x] **D5 (B)** Parallel running with the old plugin creates duplicates (different `gameId`). Use a dry-run mode, a test endpoint, or a test key?
+  - Decision / result: dry-run mode (settings `DryRun`, payload written to `%APPDATA%HSJeevesdryrun\`) plus the local test API (`test-api/`). HDT uploads to the real API, HSJeeves to the local one, so no duplicates in production.
   - Result (partial): the backend dedupes only on `gameId`, so the plugin and HSJeeves would insert two rows for one game (the plugin uses HDT's GUID, the app creates its own). Proposed: a **dry-run mode** in HSJeeves (build the payload, write it to the log, do not POST) to compare with the plugin's payload in HDT's log, plus a test key against a dev stack (`docker-compose.dev.yml`) for end-to-end tests. Needs your OK; D1 test URL still open.
 - [x] **D6 (R)** What does `/hdttoken` do when run again: revokes the old key? (Marked TODO in `docs/how-to.md`.)
   - Result: **yes, revokes the old key.** `/hdttoken` on an existing user asks for Confirm/Cancel and then marks the old row `revoked_at = now()` in the same transaction as inserting the new one (`RankTrackerAPI-design.md`, `bot/commands/hdttoken_commands.py`). A revoked key gives 401 at once, so the app must show a clear "key revoked, run /hdttoken" state. Update `docs/how-to.md`: remove the TODO.
@@ -126,19 +133,24 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
 
 ## E. App, settings and security
 
-- [ ] **E1 (B)** Settings file schema, including the DPAPI-protected key field (for example `apiKeyProtected`) next to the plain key the installer writes.
+- [x] **E1 (B)** Settings file schema, including the DPAPI-protected key field (for example `apiKeyProtected`) next to the plain key the installer writes.
+  - Decision / result: implemented in `Settings`: `ApiUrl` (default https://dee-service.cc/API), `ApiKeyProtected`, optional plain `ApiKey` (installer, migrated then removed), `DryRun`, `StartWithWindows`, `HearthstoneDirectory`. Corrupt/undecryptable key gives an empty key and a warning, not a crash.
   - Decision / result:
-- [ ] **E2 (R)** Plain key sits on disk until first launch. Acceptable, or have the installer call the app to protect it?
+- [x] **E2 (R)** Plain key sits on disk until first launch. Acceptable, or have the installer call the app to protect it?
+  - Decision / result: acceptable: the installer may write a plain `ApiKey`; on first launch the app moves it into `ApiKeyProtected` (DPAPI, current user) and removes the plain value. Live-verified on the dev settings file.
   - Decision / result:
-- [ ] **E3 (R)** Single-instance mutex name, and what the second launch does (activate the first, or exit).
+- [x] **E3 (R)** Single-instance mutex name, and what the second launch does (activate the first, or exit).
+  - Decision / result: mutex `LocalHSJeeves-single-instance` (per Windows user). A second launch exits silently; the tray icon of the first instance is already there.
   - Decision / result:
-- [ ] **E4 (R)** Account or region switch during one Hearthstone session.
+- [x] **E4 (R)** Account or region switch during one Hearthstone session.
+  - Decision / result: handled: ranks and region are per account. The tracker remembers the account (Hi:Lo) and region at game start and drops a pending game if the account changes (switch US/EU by restarting Hearthstone). Unit-tested; live-verified that the same BattleTag shows a different account id per region.
   - Decision / result:
 - [ ] **E5 (S)** Logging library (Serilog?), log format, redaction rules.
   - Decision / result:
 - [ ] **E6 (S)** Tray: icon states (OK, warning, no game, uploading), menu items (Settings, Open logs, Version, Exit), notifications, icon assets (.ico).
+  - Decision / result: partly done: menu = status line, last game, upload state, Settings..., Open logs folder, version, Exit; double-click opens Settings; warning icon + balloon when the key is missing or rejected; tooltip shows status. Still open: dedicated warning/uploading icon artwork (currently the stock Windows warning icon).
   - Decision / result:
-- [ ] **E7 (S)** Privacy note: opponent BattleTags are uploaded; memory reading disclaimer in the README.
+- [x] **E7 (S)** (closed 2026-11-23: README section "Privacy and what HSJeeves reads") Privacy note: opponent BattleTags are uploaded; memory reading disclaimer in the README.
   - Decision / result:
 
 ## F. Repository, build and tests
@@ -160,15 +172,15 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
 
 ## G. Installer and release
 
-- [ ] **G1 (B)** Inno Setup installed on the build machine. Fixed `AppId` GUID.
-  - Decision / result:
-- [ ] **G2 (R)** .NET Framework 4.7.2 prerequisite check in the installer.
-  - Decision / result:
-- [ ] **G3 (R)** Version source of truth (assembly version) and release naming (`HSJeeves-Setup-x.y.z.exe`).
-  - Decision / result:
+- [x] **G1 (B)** (closed 2026-11-23: Inno Setup installed, `installer\build.ps1` compiles `dist\HSJeeves-Setup-0.1.0.exe`) Inno Setup installed on the build machine. Fixed `AppId` GUID.
+  - Decision / result: AppId fixed in `installer/HSJeeves.iss` ({114BFFB8-5761-40D1-80AC-0E56359951D8}, never change it). Script written but NOT compiled yet: Inno Setup 6.3+ is not installed on this machine (`winget install JRSoftware.InnoSetup`); `installer/build.ps1` builds, tests and compiles it.
+- [x] **G2 (R)** .NET Framework 4.7.2 prerequisite check in the installer.
+  - Decision / result: done in the script: checks .NET Framework Release >= 461808 (4.7.2) in InitializeSetup and stops with a download link if missing. Untested until the installer is compiled and run.
+- [x] **G3 (R)** Version source of truth (assembly version) and release naming (`HSJeeves-Setup-x.y.z.exe`).
+  - Decision / result: done: the `<Version>` in `src/HSJeeves/HSJeeves.csproj` is the single source; `installer/build.ps1` reads it and passes it to Inno as AppVersion; output is `dist/HSJeeves-Setup-<version>.exe` (dist/ is git-ignored).
 - [ ] **G4 (R)** Code signing: sign, or document the SmartScreen "Run anyway" step? Decide before publishing.
   - Decision / result:
-- [ ] **G5 (S)** Test on a clean Windows user or VM: install, paste key, play, upload, upgrade in place, uninstall.
+- [ ] **G5 (S)** (partly tested 2026-11-23 on the dev machine, silent mode: fresh install writes valid settings.json and the Run key, upgrade keeps settings untouched, uninstall removes files and the Run key and keeps settings and logs. NOT tested: wizard pages by eye (key page, folder page), key entry, in-place upgrade over a running app, clean Windows user or VM, SmartScreen) Test on a clean Windows user or VM: install, paste key, play, upload, upgrade in place, uninstall.
   - Decision / result:
 - [ ] **G6 (S)** Where the release is published (GitHub release in this repo?) and who can download it.
   - Decision / result:

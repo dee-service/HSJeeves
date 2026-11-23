@@ -18,6 +18,9 @@ namespace HSJeeves.Upload
 		private readonly object _gate = new object();
 
 		public bool KeyRejected { get; private set; }
+		public bool MissingKey { get; private set; } = true;
+
+		public int PendingCount => Directory.Exists(AppPaths.Queue) ? Directory.GetFiles(AppPaths.Queue, "*.json").Length : 0;
 
 		public UploadQueue(Settings settings, HttpClient? http = null)
 		{
@@ -61,6 +64,9 @@ namespace HSJeeves.Upload
 				Log.Info("dry run: payload written for game " + id);
 				return;
 			}
+			MissingKey = string.IsNullOrEmpty(_settings.Key);
+			if(MissingKey)
+				return; // no key yet: items stay queued until one is entered in Settings
 			if(KeyRejected)
 				return; // wait for a new key instead of hammering the server
 
@@ -71,7 +77,7 @@ namespace HSJeeves.Upload
 				{
 					Content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"),
 				};
-				req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+				req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Key);
 				status = (int)_http.SendAsync(req).GetAwaiter().GetResult().StatusCode;
 			}
 			catch(Exception ex) when(ex is HttpRequestException || ex is TaskCanceledException)

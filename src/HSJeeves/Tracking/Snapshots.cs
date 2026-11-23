@@ -31,6 +31,8 @@ namespace HSJeeves.Tracking
 		public string? OpponentBattleTag { get; set; }
 		public bool HasMatchInfo { get; set; }
 		public string Region { get; set; } = "UNKNOWN";
+		// Hi:Lo of the logged-in account. Ranks are per account, so a change means a different player/region.
+		public string AccountKey { get; set; } = "";
 		public Dictionary<int, Medal> Medals { get; set; } = new Dictionary<int, Medal>();
 	}
 

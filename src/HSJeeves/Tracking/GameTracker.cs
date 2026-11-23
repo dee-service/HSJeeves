@@ -15,11 +15,14 @@ namespace HSJeeves.Tracking
 			public int Format;
 			public string Player = "";
 			public string Opponent = "";
+			public string Region = "UNKNOWN";
+			public string AccountKey = "";
 			public Medal Before = new Medal();
 			public DateTimeOffset? LeftGameplayAt;
 		}
 
 		private Current? _game;
+		private bool _waitForLeave;
 
 		public bool GameInProgress => _game != null;
 
@@ -31,16 +34,31 @@ namespace HSJeeves.Tracking
 
 			if(_game == null)
 			{
+				// After a game ends the player is still on the end screen (scene GAMEPLAY, game type still ranked):
+				// that is the same game, not a new one. A new game needs a scene change first.
+				if(_waitForLeave)
+				{
+					if(s.Scene != Scenes.Gameplay)
+						_waitForLeave = false;
+					return events;
+				}
 				if(s.Scene == Scenes.Gameplay && s.GameType == GameTypes.Ranked && s.Format != 0
 					&& s.Medals.TryGetValue(s.Format, out var before))
 				{
-					_game = new Current { Start = s.Time, Format = s.Format, Before = Clone(before) };
+					_game = new Current { Start = s.Time, Format = s.Format, Before = Clone(before), Region = s.Region, AccountKey = s.AccountKey };
 					Cache(s);
 				}
 				return events;
 			}
 
 			var g = _game;
+			// Region switch = Hearthstone restarted on another account: its ranks are unrelated to this game.
+			if(s.AccountKey != g.AccountKey)
+			{
+				events.Add(new TrackerEvent { Dropped = "Account changed while a game was pending (" + g.Region + " -> " + s.Region + ")" });
+				EndGame(s);
+				return events;
+			}
 			// GameType/Format/MatchInfo are cleared when the player leaves: only refresh while present.
 			if(s.Scene == Scenes.Gameplay)
 				g.LeftGameplayAt = null;
@@ -54,13 +72,13 @@ namespace HSJeeves.Tracking
 				if(delta == 1)
 				{
 					events.Add(new TrackerEvent { Completed = Build(g, s, now) });
-					_game = null;
+					EndGame(s);
 					return events;
 				}
 				if(delta > 1 || delta < 0)
 				{
 					events.Add(new TrackerEvent { Dropped = "SeasonGames changed unexpectedly (" + g.Before.SeasonGames + " -> " + now.SeasonGames + ")" });
-					_game = null;
+					EndGame(s);
 					return events;
 				}
 			}
@@ -68,9 +86,15 @@ namespace HSJeeves.Tracking
 			if(g.LeftGameplayAt != null && s.Time - g.LeftGameplayAt.Value >= PendingTimeout)
 			{
 				events.Add(new TrackerEvent { Dropped = "No rank update within " + (int)PendingTimeout.TotalMinutes + " min after leaving the game" });
-				_game = null;
+				EndGame(s);
 			}
 			return events;
+		}
+
+		private void EndGame(Snapshot s)
+		{
+			_game = null;
+			_waitForLeave = s.Scene == Scenes.Gameplay;
 		}
 
 		private void Cache(Snapshot s)
@@ -96,7 +120,7 @@ namespace HSJeeves.Tracking
 			Won = after.SeasonWins - g.Before.SeasonWins >= 1,
 			PlayerBattleTag = g.Player,
 			OpponentBattleTag = g.Opponent,
-			Region = s.Region,
+			Region = g.Region,
 			Before = g.Before,
 			After = Clone(after),
 		};

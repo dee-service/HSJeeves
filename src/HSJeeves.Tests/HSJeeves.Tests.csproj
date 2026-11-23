@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HSJeeves\HSJeeves.csproj" />
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
     <Reference Include="Newtonsoft.Json"><HintPath>..\lib\Newtonsoft.Json.dll</HintPath></Reference>
   </ItemGroup>
 

@@ -25,6 +25,7 @@ namespace HSJeeves.Tests
 			Assert.True(s.Valid);
 			Assert.Equal(4, s.Scene);
 			Assert.Equal("EU", s.Region);
+			Assert.Equal("144115198130930503:52368826", s.AccountKey);
 			Assert.Equal("Deesnow#2794", s.PlayerBattleTag);
 			Assert.Equal("operator36#2161", s.OpponentBattleTag);
 			Assert.Equal(93, s.Medals[Formats.Standard].SeasonGames);

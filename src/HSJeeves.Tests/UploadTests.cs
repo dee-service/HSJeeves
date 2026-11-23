@@ -80,7 +80,7 @@ namespace HSJeeves.Tests
 		{
 			Reset();
 			var h = new FakeHandler { Status = 200 };
-			var q = new UploadQueue(new Settings { ApiKey = "k" }, new HttpClient(h));
+			var q = new UploadQueue(new Settings { Key = "k" }, new HttpClient(h));
 			q.Enqueue(Payload());
 			q.Flush();
 			Assert.Empty(Directory.GetFiles(AppPaths.Queue));
@@ -92,7 +92,7 @@ namespace HSJeeves.Tests
 		{
 			Reset();
 			var h = new FakeHandler { Throw = true };
-			var q = new UploadQueue(new Settings(), new HttpClient(h));
+			var q = new UploadQueue(new Settings { Key = "k" }, new HttpClient(h));
 			q.Enqueue(Payload());
 			q.Flush();
 			var file = Directory.GetFiles(AppPaths.Queue)[0];
@@ -106,7 +106,7 @@ namespace HSJeeves.Tests
 		public void BadRequest_MovesToRejected()
 		{
 			Reset();
-			var q = new UploadQueue(new Settings(), new HttpClient(new FakeHandler { Status = 400 }));
+			var q = new UploadQueue(new Settings { Key = "k" }, new HttpClient(new FakeHandler { Status = 400 }));
 			q.Enqueue(Payload());
 			q.Flush();
 			Assert.Empty(Directory.GetFiles(AppPaths.Queue));
@@ -118,7 +118,7 @@ namespace HSJeeves.Tests
 		{
 			Reset();
 			var h = new FakeHandler { Status = 401 };
-			var q = new UploadQueue(new Settings(), new HttpClient(h));
+			var q = new UploadQueue(new Settings { Key = "k" }, new HttpClient(h));
 			q.Enqueue(Payload());
 			q.Enqueue(Payload());
 			q.Flush();
@@ -132,7 +132,7 @@ namespace HSJeeves.Tests
 		{
 			Reset();
 			var h = new FakeHandler { Status = 200 };
-			var q = new UploadQueue(new Settings { DryRun = true }, new HttpClient(h));
+			var q = new UploadQueue(new Settings { Key = "k", DryRun = true }, new HttpClient(h));
 			q.Enqueue(Payload());
 			q.Flush();
 			Assert.Equal(0, h.Calls);

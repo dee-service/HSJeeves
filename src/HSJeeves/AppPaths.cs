@@ -11,7 +11,8 @@ namespace HSJeeves
 		public static string Queue => Path.Combine(Data, "queue");
 		public static string Rejected => Path.Combine(Data, "rejected");
 		public static string DryRun => Path.Combine(Data, "dryrun");
-		public static string Log => Path.Combine(Data, "logs", "hsjeeves.log");
+		public static string LogDir => Path.Combine(Data, "logs");
+		public static string LogFileFor(DateTime day) => Path.Combine(LogDir, "hsjeeves-" + day.ToString("yyyy-MM-dd") + ".log");
 		public static string SettingsFile => Path.Combine(Data, "settings.json");
 	}
 }
