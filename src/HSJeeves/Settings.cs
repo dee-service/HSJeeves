@@ -15,6 +15,11 @@ namespace HSJeeves
 		public bool StartWithWindows { get; set; } = true;
 		// Optional: Hearthstone install folder, only needed when it cannot be found automatically (B1).
 		public string? HearthstoneDirectory { get; set; }
+		// Update notice: once a day, read the website's versions.json. Empty URL = no check; default is the Jeeves website. Nothing is installed automatically.
+		public bool CheckForUpdates { get; set; } = true;
+		public string UpdateUrl { get; set; } = "https://jeeves.dee-service.cc/downloads/versions.json";
+		// Last version we showed a balloon for (so a new version is announced once, not on every start).
+		public string? UpdateNotified { get; set; }
 
 		// File fields for the key. Use Key in code.
 		public string? ApiKey { get; set; }

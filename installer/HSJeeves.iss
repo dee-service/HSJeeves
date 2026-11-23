@@ -59,6 +59,33 @@ begin
   Result := ExpandConstant('{userappdata}\HSJeeves\settings.json');
 end;
 
+// Version of the installed copy (empty when not installed). Per-user install: the uninstall entry is under HKCU.
+function InstalledVersion: String;
+begin
+  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{114BFFB8-5761-40D1-80AC-0E56359951D8}_is1',
+                             'DisplayVersion', Result) then
+    Result := '';
+end;
+
+// Returns False when the user declines the same-version / downgrade prompt. An older installed version just updates.
+// Silent installs never ask.
+function ConfirmVersionChange: Boolean;
+var
+  Installed: String;
+  InstalledPacked, NewPacked: Int64;
+begin
+  Result := True;
+  Installed := InstalledVersion;
+  if (Installed = '') or WizardSilent then Exit;
+  if not (StrToVersion(Installed, InstalledPacked) and StrToVersion('{#AppVersion}', NewPacked)) then Exit;
+  case ComparePackedVersion(InstalledPacked, NewPacked) of
+    0: Result := MsgBox('HSJeeves ' + Installed + ' is already installed. Reinstall the same version?',
+                        mbConfirmation, MB_YESNO) = IDYES;
+    1: Result := MsgBox('A newer version (' + Installed + ') is installed. Install the older version {#AppVersion} instead?' + #13#10 +
+                        'Your settings and API key are kept.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+  end;
+end;
+
 // .NET Framework 4.7.2 = release 461808. Windows 10/11 normally has 4.8 already.
 function InitializeSetup: Boolean;
 var
@@ -72,7 +99,9 @@ begin
            'Install it from https://dotnet.microsoft.com/download/dotnet-framework and run this setup again.',
            mbError, MB_OK);
     Result := False;
+    Exit;
   end;
+  Result := ConfirmVersionChange;
 end;
 
 // A Hearthstone folder is valid when it holds Hearthstone.exe.

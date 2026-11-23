@@ -17,6 +17,7 @@ namespace HSJeeves
 		private readonly Label _result = new Label { AutoSize = false };
 		private readonly CheckBox _dry = new CheckBox { Text = "Dry run - nothing is uploaded (untick after switching off the HDT plugin)", AutoSize = true };
 		private readonly CheckBox _auto = new CheckBox { Text = "Start with Windows", AutoSize = true };
+		private readonly CheckBox _updates = new CheckBox { Text = "Check for updates", AutoSize = true };
 		private readonly TextBox _hsDir = new TextBox();
 
 		public SettingsForm(Settings settings, UploadQueue queue)
@@ -47,6 +48,7 @@ namespace HSJeeves
 
 			_dry.Location = new Point(16, 168);
 			_auto.Location = new Point(16, 194);
+			_updates.Location = new Point(300, 194);
 
 			AddLabel("Hearthstone folder (only if not found automatically)", 16, 224);
 			_hsDir.SetBounds(16, 244, 400, 24);
@@ -71,11 +73,12 @@ namespace HSJeeves
 			AcceptButton = save;
 			CancelButton = cancel;
 
-			Controls.AddRange(new Control[] { _url, _key, _show, test, _result, _dry, _auto, _hsDir, browse, save, cancel });
+			Controls.AddRange(new Control[] { _url, _key, _show, test, _result, _dry, _auto, _updates, _hsDir, browse, save, cancel });
 			_url.Text = settings.ApiUrl;
 			_key.Text = settings.Key;
 			_dry.Checked = settings.DryRun;
 			_auto.Checked = settings.StartWithWindows;
+			_updates.Checked = settings.CheckForUpdates;
 			_hsDir.Text = settings.HearthstoneDirectory ?? "";
 		}
 
@@ -102,6 +105,7 @@ namespace HSJeeves
 			_settings.Key = _key.Text.Trim();
 			_settings.DryRun = _dry.Checked;
 			_settings.StartWithWindows = _auto.Checked;
+			_settings.CheckForUpdates = _updates.Checked;
 			_settings.HearthstoneDirectory = string.IsNullOrWhiteSpace(_hsDir.Text) ? null : _hsDir.Text.Trim();
 			_settings.Save();
 			Autostart.Apply(_settings.StartWithWindows);

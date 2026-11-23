@@ -59,3 +59,14 @@ next to the old RankTracker plugin. To go live:
 
 While dry run is on, the tray icon shows a warning and every finished game
 shows a "NOT uploaded" notice.
+
+## Updates
+
+Once a day (and 20 seconds after start) HSJeeves reads the website's
+`downloads/versions.json` to see whether a newer installer exists. If so, the
+tray menu shows "Update available" and one notice appears per version. Nothing
+is downloaded or installed automatically. The request carries no key or account
+data, only the usual HTTP details and the app version in the User-Agent. Turn it
+off in Settings > "Check for updates". The installer itself asks before
+reinstalling the same version or installing an older one over a newer one
+(rollback); silent installs never ask.

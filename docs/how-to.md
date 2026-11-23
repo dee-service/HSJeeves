@@ -23,8 +23,8 @@ tracked automatically. You don't have to do anything while you play.
 
 ## 2. Install
 
-1. Download `HSJeeves-Setup-<version>.exe` from the release page *(link to be
-   added when the release is published)*.
+1. Download `HSJeeves-Setup-<version>.exe` from https://jeeves.dee-service.cc/#hsjeeves (the Download box lists the
+   latest and previous versions with their SHA-256).
 2. **Optional check:** the release page lists a SHA-256 checksum. In PowerShell:
    `Get-FileHash .\HSJeeves-Setup-<version>.exe -Algorithm SHA256`. The value
    must match the one on the release page.
@@ -88,8 +88,8 @@ Right-click the tray icon and choose **Settings** (or double-click the icon):
 
 ## Updating
 
-Run the newer installer. It closes the running app, replaces the files and
-keeps your settings and key.
+HSJeeves tells you when a newer version exists (tray menu: "Update available"; switch off in Settings). Run the newer installer. It closes the running app, replaces the files and
+keeps your settings and key. Running the same version again, or an older one over a newer one (rollback), asks for confirmation first.
 
 ## Uninstalling
 

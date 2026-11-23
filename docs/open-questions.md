@@ -182,7 +182,7 @@ Deadline: HDT plugins stop working after **30 Nov 2026**.
   - Decision / result:
 - [ ] **G5 (S)** (partly tested 2026-11-23 on the dev machine, silent mode: fresh install writes valid settings.json and the Run key, upgrade keeps settings untouched, uninstall removes files and the Run key and keeps settings and logs. NOT tested: wizard pages by eye (key page, folder page), key entry, in-place upgrade over a running app, clean Windows user or VM, SmartScreen) Test on a clean Windows user or VM: install, paste key, play, upload, upgrade in place, uninstall.
   - Decision / result:
-- [ ] **G6 (S)** (in progress 2026-11-23: installers are published to the Jeeves website, HS-Snake branch `hsjeeves-downloads`: /downloads/ + versions.json, newest 3 kept, via installerpublish.ps1. Open: merge + deploy that branch, create `./downloads` on the server, first publish, fill in the link in docs/how-to.md.) Where the release is published (GitHub release in this repo?) and who can download it.
+- [ ] **G6 (S)** (in progress 2026-11-23: installers are published to the Jeeves website, HS-Snake branch `hsjeeves-downloads`: /downloads/ + versions.json, newest 3 kept, via installerpublish.ps1. Site: https://jeeves.dee-service.cc/ (live, first installer published 2026-11-23). Open: merge hsjeeves-downloads to main.) Where the release is published (GitHub release in this repo?) and who can download it.
   - Decision / result:
 
 ## H. Schedule

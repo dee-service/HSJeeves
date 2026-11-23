@@ -41,6 +41,58 @@ namespace HSJeeves
 		private readonly System.Windows.Forms.Timer _refresh = new System.Windows.Forms.Timer { Interval = 2000 };
 		private SettingsForm? _form;
 		private bool _warned;
+		private Update.UpdateInfo? _update;
+		private bool _updateBalloon;
+		private readonly ToolStripMenuItem _updateItem = new ToolStripMenuItem();
+		private readonly System.Windows.Forms.Timer _updateTimer = new System.Windows.Forms.Timer { Interval = 20000 };
+		private static readonly System.Net.Http.HttpClient UpdateHttp = CreateUpdateHttp();
+
+		private static System.Net.Http.HttpClient CreateUpdateHttp()
+		{
+			System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+			var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+			http.DefaultRequestHeaders.UserAgent.ParseAdd("HSJeeves/" + Application.ProductVersion);
+			return http;
+		}
+
+		// Informs only: the user downloads and runs the installer themselves.
+		private async System.Threading.Tasks.Task CheckForUpdateAsync()
+		{
+			if(!_settings.CheckForUpdates || string.IsNullOrWhiteSpace(_settings.UpdateUrl))
+			{
+				_updateItem.Visible = false;
+				return;
+			}
+			var current = Update.UpdateChecker.Normalize(new Version(Application.ProductVersion.Split('-', '+')[0]));
+			var info = await Update.UpdateChecker.CheckAsync(UpdateHttp, _settings.UpdateUrl, current);
+			_update = info;
+			_updateItem.Visible = info != null;
+			if(info == null)
+				return;
+			_updateItem.Text = "Update available: v" + info.Version + " - open download page";
+			Log.Info("update available: v" + info.Version + " (installed v" + current + ")");
+			if(_settings.UpdateNotified != info.Version.ToString())
+			{
+				_settings.UpdateNotified = info.Version.ToString();
+				_settings.Save();
+
+				Balloon(10000, "HSJeeves update available", "Version " + info.Version + " is available. Click to open the download page." +
+					(string.IsNullOrEmpty(info.Notes) ? "" : " " + info.Notes), ToolTipIcon.Info);
+				_updateBalloon = true; // a click on this balloon opens the download page (set after Balloon() cleared it)
+			}
+		}
+
+		private void Balloon(int ms, string title, string text, ToolTipIcon icon)
+		{
+			_updateBalloon = false;
+			_icon.ShowBalloonTip(ms, title, text, icon);
+		}
+
+		private static void OpenUrl(string url)
+		{
+			try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+			catch(Exception ex) { Log.Warn("cannot open " + url + ": " + ex.Message); }
+		}
 
 		public TrayContext()
 		{
@@ -68,20 +120,32 @@ namespace HSJeeves
 
 			_icon = new NotifyIcon { Icon = _normal, Text = "HSJeeves", ContextMenuStrip = menu, Visible = true };
 			_icon.DoubleClick += (s, e) => OpenSettings();
-			_icon.BalloonTipClicked += (s, e) => OpenSettings();
+			_icon.BalloonTipClicked += (s, e) => { if(_updateBalloon && _update != null) OpenUrl(_update.PageUrl); else OpenSettings(); };
+
+			_updateItem.Visible = false;
+			_updateItem.Click += (s, e) => { if(_update != null) OpenUrl(_update.PageUrl); };
+			menu.Items.Insert(3, _updateItem);
 
 			_refresh.Tick += (s, e) => Refresh();
 			_refresh.Start();
 			Refresh();
 
+			// First check 20 s after start (not while the PC is still logging in), then once a day.
+			_updateTimer.Tick += async (s, e) =>
+			{
+				_updateTimer.Interval = 24 * 60 * 60 * 1000;
+				await CheckForUpdateAsync();
+			};
+			_updateTimer.Start();
+
 			_dryRunSeen = _service.Queue.DryRunWritten;
 			if(string.IsNullOrEmpty(_settings.Key))
 			{
 				_warned = true;
-				_icon.ShowBalloonTip(8000, "HSJeeves needs an API key", "Click here and paste the key from /hdttoken in Discord.", ToolTipIcon.Warning);
+				Balloon(8000, "HSJeeves needs an API key", "Click here and paste the key from /hdttoken in Discord.", ToolTipIcon.Warning);
 			}
 			else if(_settings.DryRun)
-				_icon.ShowBalloonTip(10000, "HSJeeves is in dry-run mode", DryRunAdvice, ToolTipIcon.Warning);
+				Balloon(10000, "HSJeeves is in dry-run mode", DryRunAdvice, ToolTipIcon.Warning);
 		}
 
 		// The old HDT plugin uploads the same games; two uploaders would count a game twice.
@@ -104,7 +168,7 @@ namespace HSJeeves
 			if(q.DryRunWritten != _dryRunSeen)
 			{
 				_dryRunSeen = q.DryRunWritten;
-				_icon.ShowBalloonTip(10000, "Game NOT uploaded (dry run)", "This was a test run, nothing was sent. " + DryRunAdvice, ToolTipIcon.Warning);
+				Balloon(10000, "Game NOT uploaded (dry run)", "This was a test run, nothing was sent. " + DryRunAdvice, ToolTipIcon.Warning);
 			}
 
 			_statusItem.Text = _service.HearthstoneStatus + (_service.InGame ? " - ranked game in progress" : "");
@@ -120,7 +184,7 @@ namespace HSJeeves
 				if(!_warnedFolder)
 				{
 					_warnedFolder = true;
-					_icon.ShowBalloonTip(8000, "HSJeeves cannot find the Hearthstone folder",
+					Balloon(8000, "HSJeeves cannot find the Hearthstone folder",
 						"Click here and set the folder in Settings so concedes are detected.", ToolTipIcon.Warning);
 				}
 			}
@@ -132,7 +196,7 @@ namespace HSJeeves
 			if(q.KeyRejected && !_warned)
 			{
 				_warned = true;
-				_icon.ShowBalloonTip(8000, "HSJeeves: API key rejected", "Run /hdttoken in Discord and enter the new key in Settings.", ToolTipIcon.Warning);
+				Balloon(8000, "HSJeeves: API key rejected", "Run /hdttoken in Discord and enter the new key in Settings.", ToolTipIcon.Warning);
 			}
 			if(!q.KeyRejected && !noKey)
 				_warned = false;
@@ -168,6 +232,7 @@ namespace HSJeeves
 		protected override void ExitThreadCore()
 		{
 			_refresh.Stop();
+			_updateTimer.Stop();
 			_service.Dispose();
 			_icon.Visible = false;
 			_icon.Dispose();
