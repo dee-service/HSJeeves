@@ -12,10 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Copied locally (Private=true) so the spike runs without HDT installed. -->
-    <!-- HearthMirror replacement from the HS-Magic project (UnitySpy based), see docs/build.md. -->
-    <Reference Include="HsMagic.HearthMirrorCompat"><HintPath>..\lib_compat\HsMagic.HearthMirrorCompat.dll</HintPath></Reference>
-    <Reference Include="Newtonsoft.Json"><HintPath>..\lib\Newtonsoft.Json.dll</HintPath></Reference>
+    <PackageReference Include="HSMagic" Version="1.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
 </Project>

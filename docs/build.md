@@ -3,13 +3,13 @@
 ## Prerequisites
 
 - Windows 10/11 x64, .NET SDK (checked with 10.0), .NET Framework 4.7.2 targeting pack.
-- The memory reader, from the HS-Magic project (`D:\_dev\My_Projects\HS-Magic`, UnitySpy based, replaces
-  HearthMirror, so no HDT files are needed). Build it there (`scripts/build-unityspy.ps1`, then
-  `dotnet build HsMagic.sln -c Release`) and copy the DLLs from
-  `src/HsMagic.HearthMirrorCompat/bin/Release/net472/` into `src/lib_compat/`:
-  `HsMagic.HearthMirrorCompat.dll`, `HsMagic.Mirror.dll`, `UnitySpy.dll`, `UnitySpy.HearthstoneLib.dll`,
-  `Newtonsoft.Json.dll`. `src/lib_compat/` is not committed. See HS-Magic `docs/hsjeeves-integration.md`.
-- `src/lib/Newtonsoft.Json.dll` (version 13, used by the app; the reader's own copy is older, the build adds a binding redirect).
+- The memory reader comes from the private NuGet package `HSMagic` (built by `dee-service/HS-Magic`, hosted on
+  GitHub Packages). Once per PC, create a **classic** GitHub token with only `read:packages`, then:
+  ```powershell
+  setx NuGetPackageSourceCredentials_github "Username=<your github user>;Password=<token>"
+  ```
+  Restart the terminal / VS Code. The token never goes into the repo. `nuget.config` holds the source URL.
+  CI uses the built-in `GITHUB_TOKEN` (HSJeeves needs read access in the package's Actions access list).
 
 ## Build and test
 
