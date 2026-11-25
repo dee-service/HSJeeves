@@ -22,10 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Not committed (licence unverified): copy HearthMirror and friends into src/lib, see docs/build.md. -->
-    <Reference Include="HearthMirror"><HintPath>..\lib\HearthMirror.dll</HintPath></Reference>
-    <Reference Include="untapped-scry-dotnet"><HintPath>..\lib\untapped-scry-dotnet.dll</HintPath></Reference>
-    <Reference Include="System.Reflection.DispatchProxy"><HintPath>..\lib\System.Reflection.DispatchProxy.dll</HintPath></Reference>
+    <!-- Memory reader: HearthMirror replacement from the HS-Magic project (UnitySpy based, same API for the calls used here).
+         Copy its DLLs into src/lib_compat, see docs/build.md. Newtonsoft.Json still comes from src/lib. -->
+    <Reference Include="HsMagic.HearthMirrorCompat"><HintPath>..\lib_compat\HsMagic.HearthMirrorCompat.dll</HintPath></Reference>
     <Reference Include="Newtonsoft.Json"><HintPath>..\lib\Newtonsoft.Json.dll</HintPath></Reference>
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Security" />

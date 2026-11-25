@@ -12,3 +12,4 @@ logs/
 
 # local test API stand-in (not part of the product)
 test-api/
+src/lib_compat/

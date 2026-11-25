@@ -13,9 +13,8 @@
 
   <ItemGroup>
     <!-- Copied locally (Private=true) so the spike runs without HDT installed. -->
-    <Reference Include="HearthMirror"><HintPath>..\lib\HearthMirror.dll</HintPath></Reference>
-    <Reference Include="untapped-scry-dotnet"><HintPath>..\lib\untapped-scry-dotnet.dll</HintPath></Reference>
-    <Reference Include="System.Reflection.DispatchProxy"><HintPath>..\lib\System.Reflection.DispatchProxy.dll</HintPath></Reference>
+    <!-- HearthMirror replacement from the HS-Magic project (UnitySpy based), see docs/build.md. -->
+    <Reference Include="HsMagic.HearthMirrorCompat"><HintPath>..\lib_compat\HsMagic.HearthMirrorCompat.dll</HintPath></Reference>
     <Reference Include="Newtonsoft.Json"><HintPath>..\lib\Newtonsoft.Json.dll</HintPath></Reference>
   </ItemGroup>
 

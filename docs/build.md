@@ -3,11 +3,13 @@
 ## Prerequisites
 
 - Windows 10/11 x64, .NET SDK (checked with 10.0), .NET Framework 4.7.2 targeting pack.
-- The HearthMirror DLLs. They are **not committed** (licence unverified, see
-  `docs/open-questions.md` A6). Copy these four files from an installed HDT
-  (`%LocalAppData%\HearthstoneDeckTracker\app-<version>\`) into `src/lib/`:
-  `HearthMirror.dll`, `untapped-scry-dotnet.dll`,
-  `System.Reflection.DispatchProxy.dll`, `Newtonsoft.Json.dll`.
+- The memory reader, from the HS-Magic project (`D:\_dev\My_Projects\HS-Magic`, UnitySpy based, replaces
+  HearthMirror, so no HDT files are needed). Build it there (`scripts/build-unityspy.ps1`, then
+  `dotnet build HsMagic.sln -c Release`) and copy the DLLs from
+  `src/HsMagic.HearthMirrorCompat/bin/Release/net472/` into `src/lib_compat/`:
+  `HsMagic.HearthMirrorCompat.dll`, `HsMagic.Mirror.dll`, `UnitySpy.dll`, `UnitySpy.HearthstoneLib.dll`,
+  `Newtonsoft.Json.dll`. `src/lib_compat/` is not committed. See HS-Magic `docs/hsjeeves-integration.md`.
+- `src/lib/Newtonsoft.Json.dll` (version 13, used by the app; the reader's own copy is older, the build adds a binding redirect).
 
 ## Build and test
 
