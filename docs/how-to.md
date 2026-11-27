@@ -124,7 +124,8 @@ Everything is under `%APPDATA%\HSJeeves\`:
 
 For each finished ranked match: a unique match ID, start and end time, format,
 result, whether a player conceded, your region and BattleTag, **the opponent's
-BattleTag**, and your rank before and after. It does not send chat, decks,
+BattleTag**, your rank before and after, and your season totals for that format
+(wins, games played and current win streak). It does not send chat, decks,
 friends or collection data.
 
 ## For developers

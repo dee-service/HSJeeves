@@ -6,6 +6,8 @@ using Xunit;
 
 namespace HSJeeves.Tests
 {
+	// Shares one app-data folder (AppPaths) with the other [Collection("AppData")] classes: run them serially.
+	[Collection("AppData")]
 	public class ConcedeTests
 	{
 		static ConcedeTests()

@@ -11,6 +11,8 @@ using Xunit;
 
 namespace HSJeeves.Tests
 {
+	// Shares one app-data folder (AppPaths) with the other [Collection("AppData")] classes: run them serially.
+	[Collection("AppData")]
 	public class UploadTests
 	{
 		static UploadTests()
@@ -39,8 +41,8 @@ namespace HSJeeves.Tests
 			StartTime = new DateTimeOffset(2026, 11, 23, 9, 0, 0, TimeSpan.FromHours(1)),
 			EndTime = new DateTimeOffset(2026, 11, 23, 9, 10, 0, TimeSpan.FromHours(1)),
 			Format = Formats.Standard, Won = true, PlayerBattleTag = "Deesnow#2794", OpponentBattleTag = "", Region = "EU",
-			Before = new Medal { LeagueId = 5, StarLevel = 41, Stars = 2 },
-			After = new Medal { LeagueId = 5, StarLevel = 41, Stars = 3 },
+			Before = new Medal { LeagueId = 5, StarLevel = 41, Stars = 2, SeasonGames = 93, SeasonWins = 43, WinStreak = 1 },
+			After = new Medal { LeagueId = 5, StarLevel = 41, Stars = 3, SeasonGames = 94, SeasonWins = 44, WinStreak = 2 },
 		};
 
 		private static JObject Payload() => PayloadBuilder.Build(Game(), false);
@@ -55,13 +57,60 @@ namespace HSJeeves.Tests
 		public void Payload_MatchesBackendContract()
 		{
 			var p = Payload();
-			Assert.Equal(1, (int)p["schemaVersion"]!);
+			Assert.Equal(2, (int)p["schemaVersion"]!);
 			Assert.Equal("2026-11-23T09:00:00+01:00", (string)p["startTime"]!);
 			Assert.Equal("Standard", (string)p["format"]!);
 			Assert.Equal("Win", (string)p["result"]!);
 			Assert.Equal(JTokenType.Boolean, p["wasConceded"]!.Type);
 			Assert.Equal("", (string)p["opponentBattleTag"]!);
 			Assert.Equal(0, (int)p["rank"]!["Rank"]!);
+			Assert.Equal(3, (int)p["rankAfter"]!["StarsAfter"]!);
+		}
+
+		[Fact]
+		public void Payload_V2_CarriesSeasonStatsTopLevelCamelCase()
+		{
+			var p = Payload();
+			Assert.Equal(44, (int)p["seasonWins"]!);
+			Assert.Equal(94, (int)p["seasonGames"]!);
+			Assert.Equal(2, (int)p["winStreak"]!);
+			Assert.Equal(JTokenType.Integer, p["winStreak"]!.Type);
+			Assert.Null(p["rankAfter"]!["WinStreakAfter"]); // not nested in rankAfter
+		}
+
+		[Fact]
+		public void Payload_Loss_SendsStreakZero()
+		{
+			var g = Game();
+			g.Won = false;
+			g.After.SeasonWins = 43;
+			g.After.WinStreak = 0;
+			var p = PayloadBuilder.Build(g, false);
+			Assert.Equal(2, (int)p["schemaVersion"]!);
+			Assert.Equal("Loss", (string)p["result"]!);
+			Assert.Equal(0, (int)p["winStreak"]!);
+		}
+
+		// Missing/implausible stats degrade to a v1 payload without the three fields (the backend accepts both).
+		[Theory]
+		[InlineData(true, 0, 0, 0)]    // reader provided nothing (e.g. HSMagic without Streak)
+		[InlineData(true, 44, 94, 0)]  // win but streak 0: stale or missing streak
+		[InlineData(false, 43, 94, 2)] // loss but streak not reset
+		[InlineData(true, 95, 94, 1)]  // more wins than games
+		[InlineData(true, 44, 94, -1)] // negative streak
+		public void Payload_ImplausibleSeasonStats_DegradesToV1(bool won, int wins, int games, int streak)
+		{
+			var g = Game();
+			g.Won = won;
+			g.After.SeasonGames = games;
+			g.After.SeasonWins = wins;
+			g.After.WinStreak = streak;
+			var p = PayloadBuilder.Build(g, false);
+			Assert.Equal(1, (int)p["schemaVersion"]!);
+			Assert.Null(p["seasonWins"]);
+			Assert.Null(p["seasonGames"]);
+			Assert.Null(p["winStreak"]);
+			Assert.Equal("Standard", (string)p["format"]!); // rest of the payload is intact
 			Assert.Equal(3, (int)p["rankAfter"]!["StarsAfter"]!);
 		}
 
