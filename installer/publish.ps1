@@ -5,8 +5,9 @@
 #   .\installer\publish.ps1 -Dest dist\downloads -Notes "First release"            # local folder only
 #   .\installer\publish.ps1 -Dest dist\downloads -Remote user@host:/opt/jeeves-deploy/downloads
 #
-# -Remote: one ssh call removes pruned versions and lists the server folder, one scp call uploads only files that are
-# missing there or differ in size, plus versions.json (needs OpenSSH; with key login there is no password prompt at all).
+# -Remote: one ssh call removes pruned versions and lists the server folder (sizes and SHA-256 of the installers), one
+# scp call uploads the installers that are missing there or differ (size or SHA-256), plus ALL .sha256 files and
+# versions.json (needs OpenSSH; with key login there is no password prompt at all).
 # The folder is the single source of truth: versions.json is rebuilt from what is in it.
 param(
   [string]$Dest = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist\downloads'),
@@ -75,19 +76,31 @@ if ($Remote) {
   $rm = if ($removed) { 'rm -f ' + (($removed | ForEach-Object { "'$path/$_'" }) -join ' ') + '; ' } else { '' }
   # -n: stdin from NUL. Windows OpenSSH can otherwise keep waiting on the console stdin after the remote command ended.
   $opt = @(); if ($IdentityFile) { $opt = @("-i", $IdentityFile, "-o", "IdentitiesOnly=yes") }
-  $listing = ssh -n -T @opt -o ConnectTimeout=15 $hostPart "${rm}find '$path' -maxdepth 1 -type f -printf '%f %s\n'"
+  # The same call also prints "SHA <hash> <file>" for every installer there (sha256sum), so an installer is
+  # compared by content, not only by size. The `&& { ...; true; }` keeps the exit code of `find`, so a missing
+  # folder still fails the call.
+  $listing = ssh -n -T @opt -o ConnectTimeout=15 $hostPart "${rm}find '$path' -maxdepth 1 -type f -printf '%f %s\n' && { cd '$path' && sha256sum HSJeeves-Setup-*.exe 2>/dev/null | sed 's/^/SHA /'; true; }"
   if ($LASTEXITCODE) { throw "ssh failed (does $path exist on the server?)" }
   $remoteSize = @{}
-  foreach ($line in $listing) { if ($line -match '^(.+) (\d+)$') { $remoteSize[$Matches[1]] = [int64]$Matches[2] } }
+  $remoteSha = @{}
+  foreach ($line in $listing) {
+    if ($line -match '^SHA ([0-9a-fA-F]{64})\s+\*?(.+)$') { $remoteSha[$Matches[2]] = $Matches[1].ToLower() }
+    elseif ($line -match '^(.+) (\d+)$') { $remoteSize[$Matches[1]] = [int64]$Matches[2] }
+  }
 
-  # Upload only what is missing or has a different size. versions.json is tiny and always sent, last.
+  # Installers: upload when missing, different size, or different SHA-256 (when the server could report it).
+  # Checksum files (.sha256): ALWAYS uploaded. They are 92 bytes whatever the hash is, so a size comparison
+  # can never tell a stale checksum from a current one (that left an old hash next to a rebuilt installer).
+  # versions.json is tiny and always sent, last.
   $send = @()
   foreach ($e in $entries) {
-    foreach ($suffix in '', '.sha256') {
-      $name = $e.file + $suffix
-      $local = Get-Item (Join-Path $Dest $name)
-      if (-not $remoteSize.ContainsKey($name) -or $remoteSize[$name] -ne $local.Length) { $send += $local.FullName } else { Write-Host "Already on server: $name" }
+    $exe = Get-Item (Join-Path $Dest $e.file)
+    $upload = -not $remoteSize.ContainsKey($e.file) -or $remoteSize[$e.file] -ne $exe.Length
+    if (-not $upload -and $remoteSha.ContainsKey($e.file)) {
+      $upload = $remoteSha[$e.file] -ne (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
     }
+    if ($upload) { $send += $exe.FullName } else { Write-Host "Already on server (identical): $($e.file)" }
+    $send += (Get-Item (Join-Path $Dest ($e.file + '.sha256'))).FullName
   }
   $send += (Join-Path $Dest 'versions.json')
 
