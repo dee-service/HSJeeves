@@ -45,6 +45,7 @@ namespace HSJeeves.Tracking
 						LegendRank = m.Value<int?>("LegendRank") ?? 0,
 						SeasonGames = m.Value<int?>("SeasonGames") ?? 0,
 						SeasonWins = m.Value<int?>("SeasonWins") ?? 0,
+						WinStreak = m.Value<int?>("Streak") ?? 0,
 					};
 				}
 			}

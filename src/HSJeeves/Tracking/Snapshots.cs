@@ -16,6 +16,8 @@ namespace HSJeeves.Tracking
 		public int LegendRank { get; set; }
 		public int SeasonGames { get; set; }
 		public int SeasonWins { get; set; }
+		// Current win streak. HSMagic's GetMedalInfo() names it "Streak" (not "WinStreak").
+		public int WinStreak { get; set; }
 	}
 
 	// One sample of everything the tracker needs. Built by the reader, faked in tests.

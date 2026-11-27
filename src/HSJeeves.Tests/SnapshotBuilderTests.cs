@@ -14,8 +14,8 @@ namespace HSJeeves.Tests
 		private static readonly JObject Scene = JObject.Parse(@"{""Mode"":4,""PrevMode"":7}");
 		private static readonly JObject Match = JObject.Parse(@"{""LocalPlayer"":{""BattleTag"":{""Name"":""Deesnow"",""Number"":""2794""}},""OpposingPlayer"":{""BattleTag"":{""Name"":""operator36"",""Number"":""2161""}}}");
 		private static readonly JObject Medal = JObject.Parse(@"{
-			""Standard"":{""LeagueId"":5,""StarLevel"":41,""Stars"":2,""LegendRank"":0,""SeasonGames"":93,""SeasonWins"":43},
-			""Wild"":{""LeagueId"":5,""StarLevel"":51,""Stars"":0,""LegendRank"":907,""SeasonGames"":195,""SeasonWins"":104},
+			""Standard"":{""LeagueId"":5,""StarLevel"":41,""Stars"":2,""LegendRank"":0,""SeasonGames"":93,""SeasonWins"":43,""Streak"":1},
+			""Wild"":{""LeagueId"":5,""StarLevel"":51,""Stars"":0,""LegendRank"":907,""SeasonGames"":195,""SeasonWins"":104,""Streak"":0},
 			""Classic"":null}");
 
 		[Fact]
@@ -31,6 +31,22 @@ namespace HSJeeves.Tests
 			Assert.Equal(93, s.Medals[Formats.Standard].SeasonGames);
 			Assert.Equal(907, s.Medals[Formats.Wild].LegendRank);
 			Assert.False(s.Medals.ContainsKey(Formats.Classic));
+		}
+
+		[Fact]
+		public void ReadsWinStreakFromStreakProperty()
+		{
+			var s = SnapshotBuilder.Build(T0, Account, Tag, Scene, 7, 2, Match, Medal);
+			Assert.Equal(1, s.Medals[Formats.Standard].WinStreak);
+			Assert.Equal(0, s.Medals[Formats.Wild].WinStreak);
+		}
+
+		[Fact]
+		public void MissingStreak_DefaultsToZero()
+		{
+			var noStreak = JObject.Parse(@"{""Standard"":{""LeagueId"":5,""StarLevel"":41,""Stars"":2,""LegendRank"":0,""SeasonGames"":93,""SeasonWins"":43}}");
+			var s = SnapshotBuilder.Build(T0, Account, Tag, Scene, 7, 2, Match, noStreak);
+			Assert.Equal(0, s.Medals[Formats.Standard].WinStreak);
 		}
 
 		[Fact]

@@ -10,7 +10,7 @@ namespace HSJeeves.Tests
 		private static readonly DateTimeOffset T0 = new DateTimeOffset(2026, 11, 23, 9, 0, 0, TimeSpan.FromHours(1));
 
 		private static Snapshot Snap(double sec, int scene, int type = 0, int format = 0, bool match = false,
-			int games = 93, int wins = 43, int fmtForMedal = Formats.Standard)
+			int games = 93, int wins = 43, int fmtForMedal = Formats.Standard, int streak = 0)
 		{
 			var s = new Snapshot
 			{
@@ -18,7 +18,7 @@ namespace HSJeeves.Tests
 				PlayerBattleTag = match ? "Deesnow#2794" : null, OpponentBattleTag = match ? "operator36#2161" : null,
 				Region = "EU",
 			};
-			s.Medals[fmtForMedal] = new Medal { LeagueId = 5, StarLevel = 41, Stars = 2, SeasonGames = games, SeasonWins = wins };
+			s.Medals[fmtForMedal] = new Medal { LeagueId = 5, StarLevel = 41, Stars = 2, SeasonGames = games, SeasonWins = wins, WinStreak = streak };
 			return s;
 		}
 
@@ -46,6 +46,44 @@ namespace HSJeeves.Tests
 			Assert.Equal(94, g.After.SeasonGames);
 			Assert.True(g.EndTime > g.StartTime);
 			Assert.False(t.GameInProgress);
+		}
+
+		[Fact]
+		public void Win_CarriesWinStreakBeforeAndAfter()
+		{
+			var t = new GameTracker();
+			var g = Run(t,
+				Snap(10, 4, 7, 2, true, streak: 2),
+				Snap(200, 4, 7, 2, true, 94, 44, streak: 3));
+			Assert.NotNull(g);
+			Assert.Equal(2, g!.Before.WinStreak);
+			Assert.Equal(3, g.After.WinStreak);
+		}
+
+		[Fact]
+		public void Loss_ResetsWinStreakToZero()
+		{
+			var t = new GameTracker();
+			var g = Run(t,
+				Snap(10, 4, 7, 2, true, streak: 2),
+				Snap(200, 4, 7, 2, true, 94, 43, streak: 0));
+			Assert.NotNull(g);
+			Assert.False(g!.Won);
+			Assert.Equal(2, g.Before.WinStreak);
+			Assert.Equal(0, g.After.WinStreak);
+		}
+
+		[Fact]
+		public void WinStreak_IsTakenFromTheSnapshotThatCompletesTheGame()
+		{
+			// The streak read together with SeasonGames+1 is the post-game value; an earlier snapshot is not used.
+			var t = new GameTracker();
+			var g = Run(t,
+				Snap(10, 4, 7, 2, true, streak: 2),
+				Snap(100, 4, 7, 2, true, streak: 2),
+				Snap(200, 4, 7, 2, true, 94, 44, streak: 3),
+				Snap(210, 4, 7, 2, true, 94, 44, streak: 3));
+			Assert.Equal(3, g!.After.WinStreak);
 		}
 
 		[Fact]
