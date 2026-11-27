@@ -42,7 +42,7 @@ publishing, Windows OpenSSH with a private key that is authorised on the server.
 
    ```powershell
    .\installer\publish.ps1 -Notes "What changed" `
-     -Remote jtarjanyi@10.10.28.208:/opt/hs-snake/downloads `
+     -Remote jtarjanyi@10.10.28.208:/opt/jeeves-deploy/downloads `
      -IdentityFile $env:USERPROFILE\.ssh\algocloude-nexus
    ```
 

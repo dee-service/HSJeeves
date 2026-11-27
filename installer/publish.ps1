@@ -3,7 +3,7 @@
 # (HS-Snake repo: docker-compose.yml mounts ./downloads into the www container).
 #
 #   .\installer\publish.ps1 -Dest dist\downloads -Notes "First release"            # local folder only
-#   .\installer\publish.ps1 -Dest dist\downloads -Remote user@host:/srv/hs-snake/downloads
+#   .\installer\publish.ps1 -Dest dist\downloads -Remote user@host:/opt/jeeves-deploy/downloads
 #
 # -Remote: one ssh call removes pruned versions and lists the server folder, one scp call uploads only files that are
 # missing there or differ in size, plus versions.json (needs OpenSSH; with key login there is no password prompt at all).
