@@ -15,6 +15,16 @@ $iscc = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw 'Inno Setup 6 not found. Install it first (winget install JRSoftware.InnoSetup).' }
 
+# A running HSJeeves.exe locks bin\Release\...\HSJeeves.exe and breaks the build (MSB3026/MSB3027).
+# Only stop instances launched from this repo's output folders.
+Get-Process -Name HSJeeves -ErrorAction SilentlyContinue |
+  Where-Object { $_.Path -and $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) } |
+  ForEach-Object {
+    Write-Host "Stopping running HSJeeves (PID $($_.Id)) so the build can overwrite its exe..."
+    $_ | Stop-Process -Force
+    $_.WaitForExit(5000) | Out-Null
+  }
+
 dotnet build (Join-Path $root 'HSJeeves.sln') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 dotnet test (Join-Path $root 'HSJeeves.sln') -c Release --no-build

@@ -15,11 +15,6 @@ namespace HSJeeves.Tests
 	[Collection("AppData")]
 	public class UploadTests
 	{
-		static UploadTests()
-		{
-			Environment.SetEnvironmentVariable("HSJEEVES_DATA", Path.Combine(Path.GetTempPath(), "hsjeeves-tests-" + Guid.NewGuid()));
-		}
-
 		private sealed class FakeHandler : HttpMessageHandler
 		{
 			public int Status;

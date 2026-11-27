@@ -14,11 +14,6 @@ namespace HSJeeves.Tests
 	[Collection("AppData")]
 	public class SettingsTests
 	{
-		static SettingsTests()
-		{
-			Environment.SetEnvironmentVariable("HSJEEVES_DATA", Path.Combine(Path.GetTempPath(), "hsjeeves-tests-" + Guid.NewGuid()));
-		}
-
 		private static void ResetSettingsFile()
 		{
 			if(File.Exists(AppPaths.SettingsFile)) File.Delete(AppPaths.SettingsFile);
