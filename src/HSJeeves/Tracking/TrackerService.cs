@@ -78,6 +78,9 @@ namespace HSJeeves.Tracking
 					Log.Info("game " + r.Game.GameId + " wasConceded=" + r.Conceded);
 					LastGame = PayloadBuilder.FormatName(r.Game.Format) + " " + (r.Game.Won ? "win" : "loss") + (r.Conceded ? " (conceded)" : "")
 						+ " at " + r.Game.EndTime.ToString("HH:mm");
+					if(!PayloadBuilder.HasSeasonStats(r.Game))
+						Log.Warn("season stats missing or inconsistent (wins " + r.Game.After.SeasonWins + ", games "
+							+ r.Game.After.SeasonGames + ", streak " + r.Game.After.WinStreak + "): game " + r.Game.GameId + " uploaded without them");
 					_queue.Enqueue(PayloadBuilder.Build(r.Game, r.Conceded));
 					queued = true;
 				}

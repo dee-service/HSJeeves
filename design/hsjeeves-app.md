@@ -21,7 +21,8 @@ depend on it.
 - No overlay, deck tracking or replay features.
 - No modes other than Ranked in v1 (keep the `UploadedModes` filter idea so
   adding Battlegrounds later is a small change).
-- No changes to the backend contract in v1 (`schemaVersion` stays 1).
+- No changes to the backend contract in v1 (`schemaVersion` stays 1). Later (HSJeeves 0.1.3) the contract
+  gained optional season stats and `schemaVersion` 2, see below.
 
 ## Architecture
 
@@ -126,6 +127,13 @@ Unchanged from the plugin so the backend needs no work:
   "rankAfter": { "StarLevelAfter": 0, "StarsAfter": 0, "LegendRankAfter": 0 }
 }
 ```
+
+**schemaVersion 2** (0.1.3 and later) adds three optional top-level fields after `rankAfter`:
+`"seasonWins"`, `"seasonGames"`, `"winStreak"` (ints, the played format's season record after the match, read from
+the same snapshot that detected the end of the game). They are sent only when plausible (`seasonWins <= seasonGames`,
+win => `winStreak >= 1`, loss => `winStreak == 0`); otherwise the game is uploaded as schemaVersion 1 without them
+and a warning is logged. The backend (jeeves-api `docs/payload-definition.md`) accepts both versions, so HSJeeves and
+the API can be deployed in either order.
 
 - `POST {ApiUrl}` with `Authorization: Bearer {ApiKey}`, one shared
   `HttpClient`, TLS 1.2 enabled explicitly (net472).

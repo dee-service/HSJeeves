@@ -129,6 +129,7 @@ namespace HSJeeves.Tracking
 		{
 			LeagueId = m.LeagueId, StarLevel = m.StarLevel, Stars = m.Stars,
 			LegendRank = m.LegendRank, SeasonGames = m.SeasonGames, SeasonWins = m.SeasonWins,
+			WinStreak = m.WinStreak,
 		};
 	}
 }

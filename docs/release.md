@@ -4,7 +4,7 @@ How to build a new version and publish it on the Jeeves website. Written for
 the maintainer, not for players (player guide: [how-to.md](how-to.md)).
 
 Download page: https://jeeves.dee-service.cc/#hsjeeves
-Server folder: `jtarjanyi@10.10.28.208:/opt/hs-snake/downloads`
+Server folder: `jtarjanyi@10.10.28.208:/opt/jeeves-deploy/downloads`
 
 ## One-time setup
 
@@ -31,7 +31,7 @@ Server folder: `jtarjanyi@10.10.28.208:/opt/hs-snake/downloads`
 3. **Publish:**
    ```powershell
    .\installer\publish.ps1 -Notes "What changed, one line" `
-     -Remote jtarjanyi@10.10.28.208:/opt/hs-snake/downloads `
+     -Remote jtarjanyi@10.10.28.208:/opt/jeeves-deploy/downloads `
      -IdentityFile $env:USERPROFILE\.ssh\algocloude-nexus
    ```
    What it does:
@@ -81,7 +81,7 @@ unless they are pruned by `-Keep`, so remove them with `ssh` as well).
 |---|---|
 | `build.ps1`: "Could not copy ... HSJeeves.exe" | A running HSJeeves locks the file. Exit it (tray menu > Exit), build again. |
 | `build.ps1`: Inno Setup not found | `winget install JRSoftware.InnoSetup`. |
-| `publish.ps1` hangs after the password | Use `-IdentityFile`. The script already runs ssh with `-n`. Test the key alone: `ssh -n -T -i <key> -o BatchMode=yes jtarjanyi@10.10.28.208 "ls /opt/hs-snake/downloads"`. |
-| `ssh failed (does ... exist on the server?)` | Create the folder on the server: `mkdir -p /opt/hs-snake/downloads`, and check that the www container mounts it. |
+| `publish.ps1` hangs after the password | Use `-IdentityFile`. The script already runs ssh with `-n`. Test the key alone: `ssh -n -T -i <key> -o BatchMode=yes jtarjanyi@10.10.28.208 "ls /opt/jeeves-deploy/downloads"`. |
+| `ssh failed (does ... exist on the server?)` | Create the folder on the server: `mkdir -p /opt/jeeves-deploy/downloads`, and check that the www container mounts it. |
 | Page says "Downloads are not available" | `versions.json` is missing on the server, or the folder is not mounted into the www container. |
 | Installed app never shows the update | The log (`%APPDATA%\HSJeeves\logs`, tray menu > Open logs folder) has a line "update check done ..." per check (since 0.1.2). "Check for updates" must be ticked in Settings. |

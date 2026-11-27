@@ -6,13 +6,10 @@ using Xunit;
 
 namespace HSJeeves.Tests
 {
+	// Shares one app-data folder (AppPaths) with the other [Collection("AppData")] classes: run them serially.
+	[Collection("AppData")]
 	public class ConcedeTests
 	{
-		static ConcedeTests()
-		{
-			Environment.SetEnvironmentVariable("HSJEEVES_DATA", Path.Combine(Path.GetTempPath(), "hsjeeves-tests-" + Guid.NewGuid()));
-		}
-
 		// Lines copied from a real Power.log (2026-11-23, concede). Both appear for one concede.
 		private const string GameStateLine = "D 12:04:04.3325586 GameState.DebugPrintPower() - TAG_CHANGE Entity=Deesnow#2794 tag=PLAYSTATE value=CONCEDED \n";
 		private const string TaskListLine = "D 12:04:04.3325586 PowerTaskList.DebugPrintPower() -     TAG_CHANGE Entity=Deesnow#2794 tag=PLAYSTATE value=CONCEDED \n";
